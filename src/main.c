@@ -1129,7 +1129,7 @@ static void draw_title(void) {
         const uint8_t *src = LOGO + j * LOGO_W; int base = (2 + j) * LINEW + 76 / 2;
         for (int i = 0; i < LOGO_W / 2; i++) { uint16_t px = RD16(src + i * 2); if (px) OW_PUT(base + i, px); }
     }
-    { int t = steps % 90; if (t < 12) spr(SPR_SPARK + t / 4, 0, 76 + 83, 2 + 95); }   /* estrela do logótipo a brilhar */
+    { int t = steps % 90; if (t < 12) spr(SPR_SPARK + t / 4, 0, 76 + 83, 2 + 97); }   /* estrela do logótipo a brilhar */
     if (state == ST_TITLE) {
         static const char *OP[4] = {"JOGAR", "OPÇÕES", "CRÉDITOS", "SAIR"};
         for (int i = 0; i < 4; i++) menu_item(OP[i], 128 + i * 15, i == menuSel, 96);
