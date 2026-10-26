@@ -1,0 +1,9 @@
+build/
+*.o
+*.elf
+*.32x
+*.bin
+musica.raw
+src/musica.h
+*.raw
+src/sfx.h

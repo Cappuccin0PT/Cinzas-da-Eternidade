@@ -1,0 +1,90 @@
+name: Gerar ROM 32X
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['**']
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    env:
+      MARS_INSTALL_DIR: /home/runner/mars
+      MARSDEV: /home/runner/mars
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar dependências
+        run: sudo apt-get update && sudo apt-get install -y build-essential texinfo wget libpng-dev ffmpeg
+
+      - name: Obter o Marsdev
+        id: mars
+        run: |
+          git clone --recurse-submodules https://github.com/andwn/marsdev /tmp/marsdev
+          echo "sha=$(git -C /tmp/marsdev rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache da toolchain
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: /home/runner/mars
+          key: marsdev-${{ steps.mars.outputs.sha }}-m68k-sh-v1
+
+      - name: Compilar a toolchain (só na primeira vez, pode demorar mais de 1 hora)
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          cd /tmp/marsdev
+          make m68k-toolchain-newlib -j4
+          make sh-toolchain-newlib -j4
+          make install
+
+      - name: Preparar o projeto a partir do esqueleto 32X
+        run: |
+          SK=$(find /tmp/marsdev/examples -maxdepth 1 -type d -iname '*32x*' | head -1)
+          if [ -z "$SK" ]; then echo "Esqueleto 32X não encontrado no Marsdev"; ls /tmp/marsdev/examples; exit 1; fi
+          echo "Esqueleto: $SK"
+          cp -r "$SK" build
+          # O arranque do exemplo deixa o SH-2 secundário à espera de um sinal que o main.c original dá.
+          # Lê esse sinal do main.c original (antes de o substituirmos) e passa-o ao jogo em sincronia.h.
+          echo "--- sinal de arranque do SH-2 secundário no exemplo ---"
+          grep -rn "MASTER_STATUS_OK\|SLAVE_STATUS\|COMM6" "$SK" || true
+          DEF=$(grep -rhE "^[[:space:]]*#define[[:space:]]+MASTER_STATUS_OK[[:space:]]" "$SK" | head -1)
+          STMT=$(grep -hoE "MARS_SYS_COMM[0-9]+[[:space:]]*=[[:space:]]*MASTER_STATUS_OK" "$SK"/src/*.c | head -1)
+          {
+            echo "/* Gerado pelo workflow a partir do exemplo do Marsdev. */"
+            echo "#ifndef SINCRONIA_H"
+            echo "#define SINCRONIA_H"
+            if [ -n "$DEF" ]; then echo "#ifndef MASTER_STATUS_OK"; echo "$DEF"; echo "#endif"; fi
+            if [ -n "$STMT" ]; then echo "#define LIBERTAR_SLAVE() do { $STMT; } while (0)"; fi
+            echo "#endif"
+          } > src/sincronia.h
+          echo "--- sincronia.h gerado ---"; cat src/sincronia.h
+          # gera a arte e o fundo no PC (dados da ROM) e copia o código do jogo
+          gcc -O2 -std=gnu99 -o gerar tools/gerar_assets.c -lm
+          ./gerar > src/assets.h
+          # converte as músicas (8 bits, 11025 Hz, uma por mapa) e os efeitos (16 bits, mesma taxa)
+          ffmpeg -hide_banner -loglevel error -y -i musica/Arcade_Rush.mp3 -ac 1 -ar 11025 -f s16le fortaleza.raw
+          ffmpeg -hide_banner -loglevel error -y -i musica/aldeia.mp3 -ac 1 -ar 11025 -f s16le aldeia.raw
+          python3 tools/converter_musica.py 11025 FORTALEZA fortaleza.raw ALDEIA aldeia.raw > src/musica.h
+          for n in hurt powerup attack teleport monster; do
+            ffmpeg -hide_banner -loglevel error -y -i sons/$n.wav -ac 1 -ar 11025 -f s16le $n.raw
+          done
+          python3 tools/converter_sfx.py 11025 HURT hurt.raw POWERUP powerup.raw ATTACK attack.raw TELEPORT teleport.raw MONSTER monster.raw > src/sfx.h
+          # o nosso slave.c substitui o do exemplo: o SH-2 secundário toca a música
+          cp src/main.c src/slave.c src/sincronia.h src/mundo.h src/assets.h src/logo.h src/musica.h src/sfx.h build/src/
+
+      - name: Compilar a ROM
+        run: |
+          cd build
+          make MARSDEV=$MARSDEV
+          ls -la
+          # o 32X só vê 4 MB de cartucho
+          for f in *.32x; do s=$(stat -c %s "$f"); echo "$f: $s bytes"; if [ "$s" -gt 4194304 ]; then echo "A ROM passa dos 4 MB do 32X"; exit 1; fi; done
+          cp "$(ls *.32x | head -1)" ../cinzas-da-eternidade.32x
+
+      - name: Guardar a ROM
+        uses: actions/upload-artifact@v4
+        with:
+          name: cinzas-da-eternidade-32x
+          path: cinzas-da-eternidade.32x
+          if-no-files-found: error
