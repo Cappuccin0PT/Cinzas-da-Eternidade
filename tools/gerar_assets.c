@@ -36,7 +36,7 @@ static void ie(Img *im, float cx, float cy, float rx, float ry, uint8_t c) {
             if (dx * dx + dy * dy <= 1.f) ip(im, x, y, 1, 1, c);
         }
 }
-static uint8_t tmpbuf[224 * 96];
+static uint8_t tmpbuf[224 * 96 > 128 * 128 ? 224 * 96 : 128 * 128];
 static void outline(Img *im) { /* contorno exterior de 1 px a tinta */
     int n = im->w * im->h;
     for (int i = 0; i < n; i++) tmpbuf[i] = im->px[i];
@@ -159,14 +159,31 @@ static void draw_smear(Img *im, int f, int big) {
 /* ===== Novos sprites (mesma direção de arte) ===== */
 static uint32_t hash2(int x, int y) { uint32_t h = (uint32_t)x * 374761393u + (uint32_t)y * 668265263u; h = (h ^ (h >> 13)) * 1274126177u; return h ^ (h >> 16); }
 
-static void draw_husk(Img *im, int f) {           /* casca: corcunda, braço desproporcionado */
-    int lf = f & 1;
-    p(10,24,4,5-lf,D1); p(17,24,4,4+lf,D1); p(9,29-lf,5,2,D2); p(17,29,5,2,D2);
-    e(15,18,8,7.5f,D2); e(14,16,6,5,G1);
-    p(12,15,1,4,C1); p(13,18,2,1,C1); p(17,13,1,3,C1); p(16,20,1,3,C0);
-    e(12,9,5,4,D2); e(11,8,3.5f,2.5f,G1);
-    e(21,13,3.5f,3,G1); p(23,13,1,1,C1); p(20,15,3,1,D2);
-    p(20,17+lf,4,9,D2); e(22,27,3.5f,2.5f,G1);
+static void draw_husk(Img *im, int f) {   /* esqueleto: elmo-capuz vermelho com chifres, costelas, lâmina em brasa.
+                                              f: 0 e 1 a andar, 2 lâmina erguida (aviso, olhos vermelhos), 3 golpe */
+    int lf = (f == 1) ? 1 : 0, warn = f == 2, slash = f == 3, lean = slash ? 1 : 0;
+    p(13 - lf, 22, 2, 7, S1); p(12 - lf, 28, 4, 3, E0);                            /* perna de trás */
+    p(17 + lf + lean, 22, 2, 7, S2); p(16 + lf + lean, 28, 5, 3, E1); p(16 + lf + lean, 28, 5, 1, E2);   /* perna da frente */
+    p(10, 12 + 0, 2, 7, S1); p(10, 18, 2, 2, S2);                                  /* braço de trás */
+    p(11 + lean, 11, 10, 9, D1); p(12 + lean, 12, 2, 7, C0);                       /* túnica */
+    for (int r = 0; r < 4; r++) { p(12 + lean, 12 + r * 2, 8, 1, BONE); p(19 + lean, 12 + r * 2, 1, 1, S1); }   /* costelas */
+    p(15 + lean, 12, 2, 8, S2);                                                   /* coluna */
+    p(13 + lean, 19, 7, 2, S2); p(12, 20, 9, 3, E1); p(12, 20, 9, 1, E2); p(14, 23, 4, 3, E1);   /* bacia e cinto */
+    e(18 + lean, 7, 3.5f, 3.5f, BONE); p(16 + lean, 8, 6, 2, S2);                  /* crânio */
+    p(17 + lean, 10, 4, 2, S2); p(17 + lean, 11, 4, 1, S1); p(18 + lean, 11, 1, 1, INK); p(20 + lean, 11, 1, 1, INK);   /* maxilar */
+    p(18 + lean, 6, 2, 2, INK); p(19 + lean, 6, 1, 1, warn ? RED : E2); p(21 + lean, 8, 1, 1, INK);   /* órbita com brilho e nariz */
+    e(12 + lean, 5, 4.5f, 5, E0); e(11 + lean, 3, 3, 2, E1); p(9 + lean, 6, 3, 5, E0);   /* elmo-capuz na nuca e na testa */
+    p(13 + lean, 2, 7, 2, E0); p(13 + lean, 2, 6, 1, E1); p(15 + lean, 4, 2, 1, E0);
+    p(10 + lean, 0, 1, 3, C0); p(11 + lean, 1, 1, 3, C0); p(18 + lean, 0, 1, 3, C0); p(19 + lean, 1, 1, 2, C0); p(10 + lean, 0, 1, 1, C1); p(18 + lean, 0, 1, 1, C1);   /* chifres */
+    if (warn) { p(17, 4, 2, 8, S2); p(17, 2, 2, 2, BONE);                         /* lâmina erguida para trás */
+        for (int i = 0; i < 9; i++) { p(15 - i, 1 + i / 3, 2, 2, (i & 1) ? E2 : E3); p(15 - i, 3 + i / 3, 2, 1, INK); }
+        p(16, 0, 1, 1, E4); }
+    else if (slash) { p(20, 14, 7, 2, S2); p(26, 13, 2, 3, BONE);                  /* golpe: lâmina à frente */
+        for (int i = 0; i < 6; i++) { p(27 + i, 14 - (i > 3), 2, 2, (i & 1) ? E3 : E2); p(27 + i, 16 - (i > 3), 2, 1, INK); }
+        p(31, 12, 1, 1, E4); }
+    else { p(19, 13, 2, 6, S2); p(20, 18, 2, 2, BONE);                              /* lâmina em baixo, à frente */
+        for (int i = 0; i < 7; i++) { p(22 + i, 19 + i * 5 / 7, 2, 2, (i & 1) ? E2 : E3); p(22 + i, 21 + i * 5 / 7, 2, 1, INK); }
+        p(28, 23, 1, 1, E4); }
 }
 static void draw_spark(Img *im, int f) {
     if (f == 0) { p(7,2,2,12,BONE); p(2,7,12,2,BONE); p(7,7,2,2,E4); }
@@ -733,6 +750,97 @@ static void draw_carrasco(Img *im, int pose) {   /* 96x96, virado para a esquerd
         if (i < 6) { p(x, y, 3, 3, S0); continue; }
         p(x - 5, y - 5, 10, 10, G1); p(x - 5, y - 5, 2, 2, G2); if ((i % 9) == 4) p(x + 3, y - 4, 2, 3, INK); if ((i % 13) == 2) p(x - 2, y, 2, 2, E1); }
 }
+/* ===== Versões grandes das personagens do jogo para a cutscene =====
+   Partem dos mesmos desenhos do jogo (ninja 32x32, Gorgomusgo 64x64): ampliados ao dobro com Scale2x
+   (arredonda as diagonais sem inventar cores), com sombreado automático (luz em cima, sombra em baixo e à
+   direita) e contorno fino de 1 px. */
+static void rot90(const uint8_t *src, uint8_t *dst, int n);
+static uint8_t bigA[128 * 128], bigB[128 * 128];
+static void scale2x(const uint8_t *s, int w, int h, uint8_t *d) {
+    for (int y = 0; y < h; y++) for (int x = 0; x < w; x++) {
+        uint8_t P = s[y * w + x];
+        uint8_t A = y > 0 ? s[(y - 1) * w + x] : P, B = x < w - 1 ? s[y * w + x + 1] : P;
+        uint8_t C = x > 0 ? s[y * w + x - 1] : P, D = y < h - 1 ? s[(y + 1) * w + x] : P;
+        uint8_t e0 = P, e1 = P, e2 = P, e3 = P;
+        if (C == A && C != D && A != B) e0 = A;
+        if (A == B && A != C && B != D) e1 = B;
+        if (D == C && D != B && C != A) e2 = C;
+        if (B == D && B != A && D != C) e3 = D;
+        d[(2 * y) * 2 * w + 2 * x] = e0; d[(2 * y) * 2 * w + 2 * x + 1] = e1;
+        d[(2 * y + 1) * 2 * w + 2 * x] = e2; d[(2 * y + 1) * 2 * w + 2 * x + 1] = e3;
+    }
+}
+static void auto_shade(uint8_t *px, int w, int h) {
+    for (int i = 0; i < w * h; i++) bigB[i] = px[i];
+    for (int y = 0; y < h; y++) for (int x = 0; x < w; x++) {
+        uint8_t c = bigB[y * w + x]; if (!c || c == INK || c >= NCOL) continue;
+        uint8_t up = y > 0 ? bigB[(y - 1) * w + x] : 0, dn = y < h - 1 ? bigB[(y + 1) * w + x] : 0, rt = x < w - 1 ? bigB[y * w + x + 1] : 0;
+        if (!up || up == INK) px[y * w + x] = LIGHTER[c];
+        else if (!dn || dn == INK || !rt || rt == INK) px[y * w + x] = DARKER[c];
+    }
+}
+static void blade_fire(uint8_t *px, int w, int x0, int y0, int x1, int y1, int seed0) {   /* lâmina em chamas */
+    seed = (uint32_t)seed0;
+    for (int y = y0; y <= y1; y++) for (int x = x0; x <= x1; x++) {
+        uint8_t c = px[y * w + x];
+        if (c == G2) px[y * w + x] = E3; else if (c == BONE) px[y * w + x] = E4;
+    }
+    for (int k = 0; k < 10; k++) { int x = x0 - 2 + rndi(x1 - x0 + 5), y = y0 - 2 + rndi(y1 - y0 + 5);
+        if (x >= 0 && y >= 0 && x < w && !px[y * w + x]) px[y * w + x] = (k & 1) ? E3 : E2; }
+}
+static void add_big(int id, uint8_t *px, int w, int h) {   /* âncora: centro dos pés (linha mais baixa ocupada) */
+    int bot = 0, x0 = w, x1 = 0;
+    for (int y = 0; y < h; y++) for (int x = 0; x < w; x++) if (px[y * w + x]) { bot = y; if (x < x0) x0 = x; if (x > x1) x1 = x; }
+    for (int i = 0; i < w * h; i++) work[i] = px[i];
+    add_sprite(id, work, w, h, (x0 + x1) / 2, bot);
+}
+/* Detalhes desenhados à mão por cima do ninja ampliado (vista de lado, coordenadas a 64x64).
+   Só pinta sobre píxeis do próprio desenho, para nunca sair da silhueta. */
+static void dpx(uint8_t *px, int x, int y, uint8_t c) { if (x >= 0 && y >= 0 && x < 64 && y < 64 && px[y * 64 + x] && px[y * 64 + x] != INK) px[y * 64 + x] = c; }
+static void ninja_detail(uint8_t *px, int pose, int Y) {
+    int o = 2 * Y;
+    for (int a = 0; a < 40; a++) { float t = 3.4f + a * .045f;   /* dobras do capuz */
+        dpx(px, 32 + (int)(__builtin_cosf(t) * 12), 18 + o + (int)(__builtin_sinf(t) * 11), D2);
+        if (a % 2 == 0) dpx(px, 32 + (int)(__builtin_cosf(t + .3f) * 7), 15 + o + (int)(__builtin_sinf(t + .3f) * 7), D2); }
+    for (int x = 26; x < 33; x++) dpx(px, x, 7 + o, G2);   /* reflexo do capuz */
+    dpx(px, 25, 8 + o, G2); dpx(px, 24, 9 + o, BONE);
+    for (int x = 18; x < 48; x++) { dpx(px, x, 16 + o, E1); if (x % 4 == 0) dpx(px, x, 14 + o, E3); }   /* faixa */
+    for (int y = 13; y < 21; y++) { dpx(px, 17, y + o, E1); dpx(px, 18, y + o, (y & 1) ? E2 : E1); }   /* nó */
+    dpx(px, 44, 22 + o, BONE); dpx(px, 45, 23 + o, M2);   /* brilho no olho */
+    for (int x = 37; x < 47; x += 3) dpx(px, x, 29 + o, G1);   /* costuras da máscara */
+    for (int y = 34; y < 44; y++) dpx(px, 27 + (y - 34) / 2, y + o, D1);   /* pregas da roupa */
+    for (int y = 36; y < 43; y++) dpx(px, 36 + (y - 36) / 3, y + o, D1);
+    for (int x = 24; x < 42; x++) { if (x % 3 == 0) dpx(px, x, 45 + o, E3); dpx(px, x, 46 + o, E1); }   /* cinto */
+    if (pose != ATK0 && pose != ATK1) for (int y = 18; y < 26; y++) dpx(px, 22 + (y & 1), y, (y % 3) ? M3 : M1);   /* cabo da katana */
+    for (int y = 50; y < 58; y += 3) for (int x = 26; x < 42; x++) dpx(px, x, y, D1);   /* ligaduras das pernas */
+}
+static void build_cine_sprites(void) {
+    static const int pose[7] = {IDLE, DASH, IDLE, ATK0, ATK0, RUN, ATK1};
+    static const int fr[7]   = {0,    0,    0,    0,    0,    1,   0};
+    for (int k = 0; k < 7; k++) {
+        static uint8_t s32[32 * 32];
+        Img im = {s32, 32, 32}; for (int i = 0; i < 32 * 32; i++) s32[i] = 0;
+        draw_hero(&im, SIDE, pose[k], fr[k]);
+        if (k == AREN_CHAMAS || k == AREN_CHAMAS2) blade_fire(s32, 32, 6, 0, 11, 13, 11 + k * 7);
+        if (k == AREN_ATAQUE) blade_fire(s32, 32, 22, 15, 31, 20, 99);
+        scale2x(s32, 32, 32, bigA);
+        auto_shade(bigA, 64, 64);
+        ninja_detail(bigA, pose[k], (pose[k] == RUN && fr[k] == 1) ? 1 : 0);
+        Img big = {bigA, 64, 64}; outline(&big);
+        if (k == AREN_DEITADO) { rot90(bigA, bigB, 64); for (int i = 0; i < 64 * 64; i++) bigA[i] = bigB[i]; }
+        add_big(SPR_AREN + k, bigA, 64, 64);
+    }
+    static const int bf[3] = {0, 1, 2};   /* Gorgomusgo: andar 0, andar 1, aviso */
+    for (int k = 0; k < 3; k++) {
+        static uint8_t s64[64 * 64];
+        Img im = {s64, 64, 64}; for (int i = 0; i < 64 * 64; i++) s64[i] = 0;
+        draw_boss(&im, bf[k]);
+        scale2x(s64, 64, 64, bigA);
+        auto_shade(bigA, 128, 128);
+        Img big = {bigA, 128, 128}; outline(&big);
+        add_big(SPR_CARRASCO + k, bigA, 128, 128);
+    }
+}
 static uint8_t tcrypt[224][320];
 static void build_crypt(void) {   /* fundo da cripta: parede de pedra, portal em arco, escadas, pilares com braseiros */
     seed = 5150;
@@ -778,6 +886,7 @@ static void build_sprites(void) {
     }
     for (int f = 0; f < 2; f++) { Img im = blank(16, 16); draw_crawler(&im, f); outline(&im); add_sprite_full(SPR_CRAWL + f, work, 16, 16, 8, 15); }
     for (int f = 0; f < 2; f++) { Img im = blank(32, 32); draw_husk(&im, f); outline(&im); add_sprite_full(SPR_HUSK + f, work, 32, 32, 16, 31); }
+    for (int f = 0; f < 2; f++) { Img im = blank(32, 32); draw_husk(&im, 2 + f); outline(&im); add_sprite_full(SPR_ESQ_ATK + f, work, 32, 32, 16, 31); }
     for (int f = 0; f < 4; f++) { Img im = blank(16, 24); draw_flame(&im, f); add_sprite(SPR_FLAME + f, work, 16, 24, 8, 23); }
     for (int f = 0; f < 3; f++) {
         Img im = blank(48, 48); draw_smear(&im, f, 0);
@@ -842,10 +951,7 @@ static void build_sprites(void) {
     { Img im = blank(64, 18); draw_hud_kills(&im); add_sprite(SPR_HUD_KILLS, work, 64, 18, 0, 0); }
     { Img im = blank(224, 32); draw_hud_boss(&im); add_sprite(SPR_HUD_BOSS, work, 224, 32, 0, 0); }
     for (int k = 0; k < 2; k++) { Img im = blank(24, 24); draw_avatar(&im, k); add_sprite(SPR_AVATAR + k, work, 24, 24, 0, 0); }
-    { Img im = blank(72, 28); draw_aren(&im, AREN_DEITADO); outline(&im); add_sprite(SPR_AREN + AREN_DEITADO, work, 72, 28, 36, 27); }
-    for (int k = AREN_JOELHOS; k <= AREN_CORRE; k++) { Img im = blank(48, 64); draw_aren(&im, k); outline(&im); add_sprite(SPR_AREN + k, work, 48, 64, 24, 63); }
-    { Img im = blank(64, 64); draw_aren(&im, AREN_ATAQUE); outline(&im); add_sprite(SPR_AREN + AREN_ATAQUE, work, 64, 64, 24, 63); }
-    for (int k = 0; k < 3; k++) { Img im = blank(96, 96); draw_carrasco(&im, k); outline(&im); add_sprite(SPR_CARRASCO + k, work, 96, 96, 52, 95); }
+    build_cine_sprites();
 }
 
 /* ===== Tiles 16x16 ===== */

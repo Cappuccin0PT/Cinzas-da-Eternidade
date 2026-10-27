@@ -42,7 +42,7 @@ enum { IDLE, RUN, ATK0, ATK1, DASH };
 enum {
     SPR_HERO   = 0,   /* 3 direções x 9 frames */
     SPR_CRAWL  = 27,  /* 2 */
-    SPR_HUSK   = 29,  /* 2 */
+    SPR_HUSK   = 29,  /* 2: esqueleto a andar (o golpe está em SPR_ESQ_ATK) */
     SPR_FLAME  = 31,  /* 4 */
     SPR_SMEAR  = 35,  /* 3 rotações (direita, cima, baixo) x 3 frames */
     SPR_SPARK  = 44,  /* 3 */
@@ -70,9 +70,10 @@ enum {
     SPR_HUD_KILLS,                  /* moldura com caveira para os abates (64x18) */
     SPR_HUD_BOSS,                   /* barra do boss com caveira de chifres e placa do nome (224x32) */
     SPR_AVATAR,                     /* 2: retratos do ninja e da feiticeira (24x24) */
-    SPR_AREN = SPR_AVATAR + 2,      /* cutscene: Aren — deitado, de joelhos, de pé, de pé com a espada em chamas (2), a correr, a atacar */
-    SPR_CARRASCO = SPR_AREN + 7,    /* cutscene: Carrasco das Cinzas (96x96) — parado, a erguer, a golpear */
-    SPR_COUNT = SPR_CARRASCO + 3
+    SPR_AREN = SPR_AVATAR + 2,      /* cutscene: ninja ampliado (64x64) — deitado, a erguer-se, de pé, espada em chamas (2), a correr, a atacar */
+    SPR_CARRASCO = SPR_AREN + 7,    /* cutscene: Gorgomusgo ampliado (128x128) — andar 0, andar 1, aviso */
+    SPR_ESQ_ATK = SPR_CARRASCO + 3, /* esqueleto: lâmina erguida (aviso), golpe */
+    SPR_COUNT = SPR_ESQ_ATK + 2
 };
 typedef struct { uint16_t w, h, ax, ay; uint32_t off; } SprDesc;   /* w já inclui folga par */
 typedef struct { uint16_t x, y; uint8_t spr, flags; } Prop;        /* x,y = pés, em px do mundo */

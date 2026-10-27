@@ -280,9 +280,10 @@ static int cdFogo, cdMis, cdBuraco, cdRaio, meteorT, barrageT, barrageLeft, thun
 static uint16_t padNow, padPressed;   /* comando: botões carregados e acabados de carregar */
 
 #define MAXE 96
-typedef struct { int32_t x, y, kx, ky; int16_t hp; uint8_t type, on, flash, cdOrb, face, anim, burn, burnT; int16_t next; } Enemy;
+typedef struct { int32_t x, y, kx, ky; int16_t hp; uint8_t type, on, flash, cdOrb, face, anim, burn, burnT, st, stT; int16_t next; } Enemy;
+/* tipo 0 rastejante (fere por contacto), 1 esqueleto (ataca com a lâmina: st 1 aviso, 2 golpe, 3 recupera), 2 boss */
 static Enemy en[MAXE];
-static const int E_SPD[3] = {220, 110, 150}, E_HP[3] = {8, 32, 1800}, E_DMG[3] = {4, 10, 20}, E_R[3] = {6, 10, 22};
+static const int E_SPD[3] = {220, 125, 150}, E_HP[3] = {8, 32, 1800}, E_DMG[3] = {4, 12, 20}, E_R[3] = {6, 10, 22};
 /* Boss do primeiro mapa: Gorgomusgo. Aparece no nível 15; ao morrer abre um portal no centro do mapa. */
 #define BOSS_NIVEL 15
 static const char *BOSS_NOME = "GORGOMUSGO", *BOSS_SUB = "O TRONCO QUE DEVORA RUNAS";
@@ -352,7 +353,7 @@ static void spawn_at(int type, int px, int py) {
     if (attr_at(px, py) & A_SOLID) return;
     int i = free_enemy(); Enemy *e = &en[i];
     int t = steps / 60;
-    e->x = px << FP; e->y = py << FP; e->kx = e->ky = 0; e->type = (uint8_t)type; e->on = 1; e->flash = 0; e->cdOrb = 0; e->anim = (uint8_t)rndi(16); e->burn = 0; e->burnT = 0;
+    e->x = px << FP; e->y = py << FP; e->kx = e->ky = 0; e->type = (uint8_t)type; e->on = 1; e->flash = 0; e->cdOrb = 0; e->anim = (uint8_t)rndi(16); e->burn = 0; e->burnT = 0; e->st = 0; e->stT = 0;
     e->hp = (int16_t)(type == 2 ? E_HP[2] : E_HP[type] * (100 + t / 2) / 100);
 }
 static void spawn_ring(int type, int rmin, int rmax) {
@@ -423,11 +424,16 @@ static void start_boss(void) {
     while (k < 3 && (attr_at(hx + off[k][0], hy + off[k][1]) & A_SOLID)) k++;
     int i = free_enemy(); Enemy *e = &en[i];
     e->x = (hx + off[k][0]) << FP; e->y = (hy + off[k][1]) << FP; e->kx = e->ky = 0;
-    e->type = 2; e->on = 1; e->flash = 0; e->cdOrb = 0; e->anim = 0; e->face = 0; e->burn = 0; e->burnT = 0;
+    e->type = 2; e->on = 1; e->flash = 0; e->cdOrb = 0; e->anim = 0; e->face = 0; e->burn = 0; e->burnT = 0; e->st = 0; e->stT = 0;
     e->hp = (int16_t)E_HP[2]; bossMaxHp = E_HP[2]; boss_clamp(e);
     bossIdx = i; bossState = 0; bossT = 0;
     state = ST_INTRO; introT = 0; lightning = 9; shake = 8;
     tocar_sfx(SFX_ID_MONSTER);
+}
+static void hero_hurt(int dmg) {
+    if (H.inv) return;
+    H.hp -= dmg; H.inv = 45; H.flash = 8; shake = 6; tocar_sfx(SFX_ID_HURT);
+    if (H.hp <= 0) { H.hp = 0; state = ST_OVER; }
 }
 #define GC 32
 #define GW (MAP_W * TILE / GC)
@@ -442,12 +448,28 @@ static void update_enemies(void) {
         if (e->type == 2) { boss_move(e, dx, dy, d); e->anim++; }
         else {
             if (d > 420) { e->on = 0; spawn_ring(e->type, 200, 230); continue; }   /* reaparece perto */
-            int vx = dx * E_SPD[e->type] / d + e->kx, vy = dy * E_SPD[e->type] / d + e->ky;
+            int spd = E_SPD[e->type];
+            if (e->type == 1) {   /* esqueleto: perto do herói para, ergue a lâmina (aviso) e golpeia à frente */
+                if (!e->st && d < 34) { e->st = 1; e->stT = 0; e->face = (uint8_t)(dx < 0); }
+                if (e->st) {
+                    e->stT++;
+                    if (e->st == 1 && e->stT >= 30) {
+                        int dir = e->face ? -1 : 1;
+                        e->st = 2; e->stT = 0;
+                        add_fx(SPR_SMEAR, 3, 3, ex + dir * 14, ey - 14, e->face ? 2 : 0);
+                        if (dx * dir > -6 && iabs(dx) < 38 && iabs(dy) < 22) hero_hurt(E_DMG[1]);
+                    } else if (e->st == 2 && e->stT >= 10) { e->st = 3; e->stT = 0; }
+                    else if (e->st == 3 && e->stT >= 50) e->st = 0;
+                    spd = e->st == 3 ? spd / 2 : 0;
+                }
+            }
+            int vx = dx * spd / d + e->kx, vy = dy * spd / d + e->ky;
             e->kx = e->kx * 3 / 4; e->ky = e->ky * 3 / 4;
             int32_t nx = e->x + vx, ny = e->y + vy;
             if (!(attr_at(nx >> FP, ey) & A_SOLID)) e->x = nx;
             if (!(attr_at(e->x >> FP, ny >> FP) & A_SOLID)) e->y = ny;
-            e->face = (uint8_t)(dx < 0); e->anim++;
+            if (!e->st) e->face = (uint8_t)(dx < 0);
+            e->anim++;
             if (bh.on) {   /* buraco negro: puxa para o centro */
                 int bx = (bh.x >> FP) - (e->x >> FP), by = (bh.y >> FP) - (e->y >> FP), bd = dist_approx(bx, by);
                 if (bd < bh.R && bd > 2) { e->x += bx * bh.pull / bd; e->y += by * bh.pull / bd; }
@@ -461,10 +483,7 @@ static void update_enemies(void) {
         if (e->flash) e->flash--;
         if (e->cdOrb) e->cdOrb--;
         int r = E_R[e->type] + 6;
-        if (iabs(dx) < r && iabs(dy) < r && H.inv == 0) {
-            H.hp -= E_DMG[e->type]; H.inv = 45; H.flash = 8; shake = 6; tocar_sfx(SFX_ID_HURT);
-            if (H.hp <= 0) { H.hp = 0; state = ST_OVER; }
-        }
+        if (e->type != 1 && iabs(dx) < r && iabs(dy) < r && H.inv == 0) hero_hurt(E_DMG[e->type]);   /* o esqueleto só fere com a lâmina */
         int c = ((e->y >> FP) / GC) * GW + (e->x >> FP) / GC;
         if (c >= 0 && c < GW * GW) { e->next = ghead[c]; ghead[c] = (int16_t)i; }
     }
@@ -847,7 +866,7 @@ static void draw_title_bg(void);
 static void draw_logo(int x0, int y0, int dissolve);
 /* ===== Cutscene de abertura (40 s, sincronizada com musica/intro.mp3) ===== */
 static const int CENA_INI[9] = {0, 300, 600, 900, 1200, 1500, 1860, 2160, 2400};   /* em passos de 1/60 s */
-static const char *CENA_FALA[8] = {0, 0, "AREN (VOZ BAIXA)", "AREN", "AREN", "CARRASCO", "AREN", 0};
+static const char *CENA_FALA[8] = {0, 0, "AREN (VOZ BAIXA)", "AREN", "AREN", "GORGOMUSGO", "AREN", 0};
 static const char *CENA_TXT[8] = {"HÁ MIL ANOS, A MORTE FOI DERROTADA.", "MAS A ETERNIDADE TEM FOME.", "AINDA... NÃO.",
     "QUEM ME CHAMOU?", "ENTÃO VENHAM.", "A TUA ORDEM MORREU CONTIGO.", "ENTÃO VAIS MORRER OUTRA VEZ.", "SOBREVIVE. EVOLUI. RECORDA."};
 static int cineT, cena = -1;
@@ -872,8 +891,8 @@ static void cine_cena(int c) {   /* preparação de cada cena */
     if (c == 2) { load_map(0); arenX = 16 * 16 + 8; arenY = 18 * 16 + 4; }
     if (c == 4) for (int i = 0; i < 14; i++) { int a = i * 18; cx_[i].on = 1; cx_[i].tipo = (uint8_t)(i % 3 == 0); cx_[i].anim = (uint8_t)i;
         cx_[i].x = (arenX + (SINT[(a + 64) & 255] * (150 + (i & 3) * 20) >> 8)) << FP; cx_[i].y = (arenY + (SINT[a] * (100 + (i & 3) * 14) >> 8)) << FP; }
-    if (c == 5) { carrX = 160; carrY = 150; }
-    if (c == 6) { arenX = 20; carrX = 300; arenY = carrY = 174; }
+    if (c == 5) { carrX = 160; carrY = 150; }   /* pés do Gorgomusgo ampliado (128x128) */
+    if (c == 6) { arenX = 20; carrX = 320; arenY = carrY = 176; }
 }
 static void cine_step(void) {
     if (padPressed & (SEGA_CTRL_START | SEGA_CTRL_A)) { cine_end(); return; }   /* saltar */
@@ -915,7 +934,7 @@ static void cine_step(void) {
         }
         if (rndi(2) == 0) add_part(1, (arenX + 14 + rndi(10)) << FP, (arenY - 30 + rndi(20)) << FP, rndi(64) - 32, -(80 + rndi(100)), 25, E3);
     }
-    if (c == 5 && t > 90 && carrY < 196) carrY++;   /* o Carrasco sai da cripta */
+    if (c == 5 && t > 90 && carrY < 174) carrY++;   /* o Gorgomusgo sai da cripta e para acima da legenda */
     if (c == 6 && t < 60) { arenX += (t & 1) ? 1 : 2; carrX -= (t & 1) ? 1 : 2; }   /* carregam um contra o outro e encontram-se ao centro */
     if (c == 6 && t == 60) for (int k = 0; k < 6; k++) add_fx(SPR_SPARK, 3, 3, 160 + rndi(30) - 15, 140 + rndi(30) - 15, 0);
     for (int i = 0; i < MAXFX; i++) if (fx[i].on && ++fx[i].t >= fx[i].n * fx[i].rate) fx[i].on = 0;
@@ -978,13 +997,14 @@ static void cine_draw(void) {
         for (int i = 0; i < nVig; i++) FB8[vig[i]] = INK;
     }
     if (c == 5) {
-        if (t > 20 && t < 100 && ((t >> 3) & 3)) { pset(156, 120, RED); pset(157, 120, RED); pset(163, 120, RED); pset(164, 120, RED); }   /* olhos na escuridão */
-        if (t >= 90) spr(SPR_CARRASCO + (t > 250 ? 1 : 0), 0, carrX, carrY);
+        if (t > 20 && t < 100 && ((t >> 3) & 3)) for (int k = 0; k < 2; k++) { int ex = k ? 174 : 146;   /* olhos do Gorgomusgo na escuridão */
+            pset(ex, 62, RED); pset(ex - 1, 63, RED); pset(ex, 63, E4); pset(ex + 1, 63, RED); pset(ex, 64, RED); }
+        if (t >= 90) spr(SPR_CARRASCO + (t > 250 ? 2 : ((t >> 4) & 1)), 0, carrX, carrY);
     }
     if (c == 6) {
         int clash = t >= 60;
         spr(SPR_AREN + (clash ? AREN_ATAQUE : AREN_CORRE), 0, arenX + (shake ? rndi(3) - 1 : 0), arenY);
-        spr(SPR_CARRASCO + (clash ? 2 : 1), 0, carrX, carrY);   /* já desenhado virado para a esquerda */
+        spr(SPR_CARRASCO + (clash ? 0 : 2), (carrX > arenX) ? 0 : 2, carrX, carrY);
         for (int i = 0; i < MAXFX; i++) if (fx[i].on) spr(fx[i].base + fx[i].t / fx[i].rate, fx[i].v, fx[i].x, fx[i].y);
     }
     if (c == 7) draw_logo(76, 34, t < 110 ? 0 : (t - 110) * 3);
@@ -1145,7 +1165,8 @@ static void draw_world(void) {
         else if (it->kind == 3) spr(SPR_PORTAL + ((steps >> 3) & 3), 0, portalX - ce, portalY - camY);
         else if (it->kind == 1) { Enemy *e = &en[it->idx];
             int fr = e->type == 2 ? SPR_BOSS + (bossState == 1 ? 2 : (e->anim >> 4) & 1)
-                   : e->type ? SPR_HUSK + ((e->anim >> 4) & 1) : SPR_CRAWL + ((e->anim >> 3) & 1);
+                   : e->type ? (e->st == 1 ? SPR_ESQ_ATK : e->st == 2 ? SPR_ESQ_ATK + 1 : SPR_HUSK + ((e->anim >> 4) & 1))
+                   : SPR_CRAWL + ((e->anim >> 3) & 1);
             spr(fr, (e->flash ? 4 : 0) | (e->face ? 2 : 0), (e->x >> FP) - ce, (e->y >> FP) - camY); }
         else {
             int k2 = H.atkT > 6 ? 6 : H.atkT ? 7 : H.moving ? 2 + ((H.anim / 6) & 3) : (H.anim / 30) & 1;
@@ -1379,6 +1400,7 @@ static void setup_linetable(void) {
 void pv_cheat(void) { level = 14; xp = xpNext - 1; lvl[U_LAMINA] = 6; lvl[U_BRASAS] = 5; lvl[U_FAULHA] = 5; H.maxhp = H.hp = 999; }
 void pv_magias(int n) { lvl[U_FOGO] = lvl[U_MISSEIS] = lvl[U_BURACO] = lvl[U_RAIO] = (uint8_t)n; H.maxhp = H.hp = 999; }
 void pv_heroi(int h) { heroi = h; }
+void pv_esq(void) { spawn_at(1, (H.x >> FP) + 60, (H.y >> FP) + 4); spawn_at(1, (H.x >> FP) - 70, (H.y >> FP) - 10); }
 int pv_bh(void) { return bh.on ? bh.t : -1; }
 void pv_boss_low(void) { if (bossIdx >= 0) en[bossIdx].hp = 30; }
 void pv_goto_portal(void) { H.x = portalX << FP; H.y = (portalY + 40) << FP; }

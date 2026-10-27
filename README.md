@@ -27,9 +27,11 @@ Ao ligar a consola, antes do título, corre uma cutscene de 40 segundos sincroni
 | 10–15 s | Aren caído no cemitério; uma brasa aproxima-se | Aren: "AINDA... NÃO." | |
 | 15–20 s | Aren ergue-se e a espada incendeia-se | Aren: "QUEM ME CHAMOU?" | Espada aos 16 s |
 | 20–25 s | A horda ataca e Aren corta-a | Aren: "ENTÃO VENHAM." | Ossos aos 21 s |
-| 25–31 s | O Carrasco das Cinzas sai da cripta | Carrasco: "A TUA ORDEM MORREU CONTIGO." | Porta da cripta aos 26 s |
+| 25–31 s | O Gorgomusgo sai da cripta | Gorgomusgo: "A TUA ORDEM MORREU CONTIGO." | Porta da cripta aos 26 s |
 | 31–36 s | Confronto sob a lua | Aren: "ENTÃO VAIS MORRER OUTRA VEZ." | Impacto aos 32 s |
 | 36–40 s | O logótipo surge e desfaz-se em cinzas | "SOBREVIVE. EVOLUI. RECORDA." | Confirmar aos 38 s |
+
+As personagens da cutscene são as do jogo (o ninja, aqui chamado Aren, e o Gorgomusgo), ampliadas ao dobro com Scale2x a partir dos mesmos desenhos, com sombreado e detalhes acrescentados.
 
 Os efeitos da cutscene (`sons/trovao.wav`, `fogo.wav`, `ossos.wav`, `porta.wav`, `impacto.wav`, `confirmar.wav`) foram sintetizados com `tools/sintetizar_sfx.py` e podem ser trocados por gravações próprias com o mesmo nome.
 
@@ -91,7 +93,7 @@ Escolhe-se no título (linha "PERSONAGEM", com A ou esquerda/direita). As melhor
 | Íman de brasa | Recolhe cristais de mais longe | 4 |
 | Fúria | −8% de tempo de recarga | 4 |
 
-**Inimigos:** o rastejante (rápido e frágil) e a casca (lenta e resistente, a partir dos 40 segundos). A vida dos inimigos cresce com o tempo e, a cada minuto, uma horda fecha um anel à volta do herói.
+**Inimigos:** o rastejante (rápido e frágil, fere por contacto) e o esqueleto (mais resistente, a partir dos 40 segundos). O esqueleto ataca com uma lâmina em brasa: quando chega perto, para, ergue a lâmina durante meio segundo com o olho vermelho e golpeia à frente. A vida dos inimigos cresce com o tempo e, a cada minuto, uma horda fecha um anel à volta do herói.
 
 **Mapas:** dois mapas de 96×96 tiles (1536×1536 píxeis), com scroll. O nome do mapa aparece ao entrar.
 
