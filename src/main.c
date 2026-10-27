@@ -1018,29 +1018,39 @@ static void draw_world(void) {
     for (int i = 0; i < nVig; i++) FB8[vig[i] + hud_dx] = INK;
 }
 static void draw_hud(void) {
-    char b[40], t[12];
-    /* barra de experiência */
-    rect(8 + hud_dx, 4, 304, 6, INK);
-    rect(9 + hud_dx, 5, 302, 4, D1);
-    int w = xpNext ? 302 * xp / xpNext : 0; rect(9 + hud_dx, 5, w, 4, M2); rect(9 + hud_dx, 5, w, 1, M3);
-    b[0] = 'N'; b[1] = 'V'; b[2] = ' '; numstr(b + 3, level); text(b, 8, 16, BONE, 1);
-    int s = steps / 60; num(t, s / 60, 2); t[2] = ':'; num(t + 3, s % 60, 2); text_c(t, 16, BONE, 1);
-    numstr(t, kills); { const char *a = "ABATES "; int i = 0; while (a[i]) { b[i] = a[i]; i++; } int j = 0; while (t[j]) b[i++] = t[j++]; b[i] = 0; }
-    text(b, SCR_W - 8 - text_w(b, 1), 16, BONE, 1);
-    if (bossIdx >= 0 && state == ST_PLAY) {   /* vida do boss */
-        text_c(BOSS_NOME, 28, C1, 1);
-        rect(60 + hud_dx, 38, 200, 6, INK); rect(61 + hud_dx, 39, 198, 4, C0);
-        int bw = 198 * en[bossIdx].hp / bossMaxHp; if (bw < 0) bw = 0;
-        rect(61 + hud_dx, 39, bw, 4, C1); rect(61 + hud_dx, 39, bw, 1, BONE);
+    /* HUD em molduras de metal: avatar, vida, nível e experiência (canto superior esquerdo),
+       relógio (topo ao centro), abates (canto superior direito) e barra do boss (fundo ao centro).
+       Os rect() somam hud_dx à mão; o text() já o soma. */
+    char b[24], t[12];
+    int dx = hud_dx;
+    spr(SPR_HUD_LEFT, 0, 4 + dx, 4);
+    spr(SPR_AVATAR + (heroi == HERO_MAGO), 0, 8 + dx, 10);
+    int hp = H.hp < 0 ? 0 : H.hp, hpw = 82 * hp / H.maxhp;
+    rect(39 + dx, 9, 82, 8, INK);
+    rect(39 + dx, 9, hpw, 8, H.flash ? RED : E2); rect(39 + dx, 9, hpw, 1, E3); rect(39 + dx, 16, hpw, 1, E1);
+    numstr(b, hp); { int k = 0; while (b[k]) k++; b[k++] = '/'; numstr(b + k, H.maxhp); }
+    text(b, 39 + (82 - text_w(b, 1)) / 2, 10, BONE, 1);
+    b[0] = 'N'; b[1] = 'V'; numstr(b + 2, level);
+    text(b, 38 + (26 - text_w(b, 1)) / 2, 26, BONE, 1);
+    int xw = xpNext ? 50 * xp / xpNext : 0; if (xw > 50) xw = 50;
+    rect(69 + dx, 27, 50, 6, INK); rect(69 + dx, 27, xw, 6, M2); rect(69 + dx, 27, xw, 1, M3); rect(69 + dx, 32, xw, 1, M1);
+    spr(SPR_HUD_TIMER, 0, 134 + dx, 4);
+    int s = steps / 60; num(t, s / 60, 2); t[2] = ':'; num(t + 3, s % 60, 2);
+    text(t, 134 + (52 - text_w(t, 1)) / 2, 10, BONE, 1);
+    spr(SPR_HUD_KILLS, 0, 252 + dx, 4);
+    numstr(t, kills); text(t, 252 + 58 - text_w(t, 1), 10, BONE, 1);
+    if (bossIdx >= 0 && state == ST_PLAY) {   /* barra do boss, em baixo ao centro */
+        spr(SPR_HUD_BOSS, 0, 48 + dx, 190);
+        text(BOSS_NOME, 48 + 67 + (94 - text_w(BOSS_NOME, 1)) / 2, 194, BONE, 1);
+        int bw = 192 * en[bossIdx].hp / bossMaxHp; if (bw < 0) bw = 0;
+        rect(72 + dx, 207, 192, 8, INK);
+        rect(72 + dx, 207, bw, 8, E1); rect(72 + dx, 207, bw, 2, E2); rect(72 + dx, 207, bw, 1, E3);
     }
     if (bannerT && state == ST_PLAY) text_c(bannerTxt, 52, E4, 1);
     if (mapNameT && state == ST_PLAY && mapNameT < 230) {   /* nome do mapa ao entrar */
         text_c(MAPAS[mapa].nome, 70, E3, 2);
         text_c(MAPAS[mapa].sub, 94, BONE, 1);
     }
-    /* vida por baixo do herói */
-    int hx = (H.x >> FP) - (camX & ~1) - 10, hy = (H.y >> FP) - camY + 5;
-    rect(hx, hy, 20, 4, INK); rect(hx + 1, hy + 1, 18, 2, E0); rect(hx + 1, hy + 1, 18 * H.hp / H.maxhp, 2, H.flash ? RED : E2);
 }
 static void draw_screens(void) {
     char b[48], t[12];

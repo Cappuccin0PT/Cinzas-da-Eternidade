@@ -242,7 +242,7 @@ static void draw_shadow(Img *im, int w, int h) {  /* sombra de contacto pontilha
 static uint8_t sprData[3 * 1024 * 1024];
 static uint32_t sprLen;
 static SprDesc desc[SPR_COUNT];
-static uint8_t work[64 * 64], work2[64 * 64];
+static uint8_t work[224 * 40], work2[64 * 64];
 static Img blank(int w, int h) { for (int i = 0; i < w * h; i++) work[i] = 0; Img im = {work, w, h}; return im; }
 
 /* full = 1: 8 variantes (flash, espelhado, deslocado); full = 0: só as 2 deslocadas (adereços, efeitos fixos).
@@ -585,6 +585,69 @@ static void draw_cape(Img *im, int f) {   /* herói de costas na falésia, capa 
     p(23,25,4,1,S1);
     e(18,9,4.5f,5,INK); p(15,5,6,3,D1); p(20,6,2,4,D1); p(14,13,9,2,E1);
 }
+/* ===== HUD: molduras de metal roxo com rebites e pedras vermelhas (os valores são desenhados pelo jogo) ===== */
+static void hgem(Img *im, int cx, int cy) {   /* pedra vermelha engastada */
+    p(cx-1,cy-2,3,5,INK); p(cx-2,cy-1,5,3,INK);
+    p(cx,cy-1,1,3,E1); p(cx-1,cy,3,1,E1); p(cx,cy,1,1,E2); p(cx,cy-1,1,1,E3);
+}
+static void hframe(Img *im, int x, int y, int w, int h) {
+    p(x,y,w,h,INK); p(x+1,y+1,w-2,h-2,C0);
+    p(x+1,y+1,w-2,1,D2); p(x+1,y+h-2,w-2,1,D1);
+    for (int i = x + 5; i < x + w - 4; i += 8) { p(i,y+1,1,1,G1); p(i,y+h-2,1,1,D2); }   /* rebites */
+    p(x+2,y+2,w-4,h-4,INK); p(x+3,y+3,w-6,h-6,D1);
+}
+static void htip(Img *im, int x, int cy, int dir) {   /* ponta metálica em seta */
+    for (int k = 0; k < 4; k++) { p(x + dir * k, cy - 3 + k, 1, 7 - 2 * k, k == 0 ? INK : C0); }
+    p(x + dir * 4, cy, 1, 1, INK);
+}
+static void draw_hud_left(Img *im) {   /* 130x36 */
+    hframe(im, 31, 1, 90, 16); htip(im, 121, 9, 1);           /* vida */
+    hframe(im, 31, 18, 32, 16);                                /* nível */
+    hframe(im, 62, 20, 56, 12); htip(im, 118, 26, 1);         /* experiência */
+    hframe(im, 0, 0, 32, 36);                                  /* avatar */
+    hgem(im, 2, 2); hgem(im, 29, 2); hgem(im, 2, 33); hgem(im, 29, 33);
+    hgem(im, 33, 3); hgem(im, 33, 32);
+    p(4,4,24,28,M0); for (int y = 4; y < 32; y++) for (int x = 4; x < 28; x++) if (((x + y) & 1) && (y < 8 || y > 28)) ip(im, x, y, 1, 1, INK);
+}
+static void draw_hud_timer(Img *im) {   /* 52x18 */
+    hframe(im, 0, 1, 52, 16);
+    hgem(im, 2, 3); hgem(im, 49, 3); hgem(im, 2, 14); hgem(im, 49, 14);
+    p(23,0,6,3,C0); p(23,0,6,1,INK); hgem(im, 26, 1);
+}
+static void draw_hud_kills(Img *im) {   /* 64x18 */
+    hframe(im, 0, 1, 64, 16);
+    hgem(im, 2, 3); hgem(im, 61, 3); hgem(im, 2, 14); hgem(im, 61, 14);
+    e(10,8,4,3.5f,BONE); p(7,10,7,3,G2); p(8,11,5,1,BONE);   /* caveira */
+    p(8,7,2,2,INK); p(11,7,2,2,INK); p(10,9,1,1,INK); p(8,12,1,1,INK); p(10,12,1,1,INK); p(12,12,1,1,INK);
+}
+static void draw_hud_boss(Img *im) {   /* 224x32 */
+    hframe(im, 20, 13, 200, 16); htip(im, 220, 21, 1); hgem(im, 216, 21);
+    hframe(im, 64, 0, 100, 14); htip(im, 63, 7, -1); htip(im, 164, 7, 1);
+    hgem(im, 67, 3); hgem(im, 160, 3);
+    for (int y = 3; y < 32; y++) { int w = 12 - (y > 17 ? y - 17 : 17 - y); if (w < 0) continue;   /* losango atrás da caveira */
+        p(13 - w, y, 2 * w + 1, 1, C0); p(13 - w, y, 1, 1, INK); p(13 + w, y, 1, 1, INK); }
+    for (int i = 0; i < 10; i++) { p(5 - i / 2, 12 - i, 3, 2, D2); p(5 - i / 2, 12 - i, 1, 1, G1);   /* chifres */
+                                   p(19 + i / 2, 12 - i, 3, 2, D2); p(21 + i / 2, 12 - i, 1, 1, G1); }
+    e(13,16,7,7,BONE); e(12,15,5,5,BONE); p(8,20,10,6,G2); p(9,25,8,2,G2);   /* caveira */
+    e(10,16,2,2,INK); e(16,16,2,2,INK); p(10,16,1,1,E2); p(16,16,1,1,E2);
+    p(12,19,2,2,INK); for (int x = 9; x < 17; x += 2) p(x,23,1,3,INK);
+}
+static void draw_avatar(Img *im, int mago) {   /* 24x24 */
+    if (!mago) {
+        p(2,21,20,3,D2); p(2,21,20,1,G1); p(19,1,2,6,M2);
+        e(12,11,8.5f,8.5f,G1); e(10,7,4,2.5f,G2);
+        p(3,8,18,3,E2); p(3,10,18,1,E1); p(11,8,2,2,E4); p(20,10,3,2,E2);
+        p(6,12,12,4,S2); p(6,15,12,1,S1); p(8,13,3,1,M3); p(13,13,3,1,M3); p(9,13,1,1,INK); p(13,13,1,1,INK);
+        p(5,16,14,4,D2); p(6,16,12,1,G1);
+    } else {
+        p(2,20,20,4,C0); p(2,20,20,1,C1); p(11,20,2,4,E3);
+        p(3,10,4,11,E2); p(17,10,4,11,E2); p(3,10,1,11,E1); p(20,10,1,11,E1);
+        p(7,10,10,7,S2); p(7,16,10,1,S1); p(8,12,3,1,M3); p(13,12,3,1,M3); p(9,12,1,1,INK); p(14,12,1,1,INK);
+        p(7,10,10,2,E2); p(8,10,3,1,E3);
+        for (int y = 0; y < 8; y++) { int w = 2 + y * 3 / 2, cx = 15 - y / 2; p(cx - w / 2, y, w, 1, C0); p(cx - w / 2, y, 1, 1, C1); }
+        e(12,9,11,2,C0); p(2,8,20,1,C1); p(6,6,12,2,S1); p(11,6,2,2,M3);
+    }
+}
 static void rot90(const uint8_t *src, uint8_t *dst, int n) {   /* rotação de 90° no sentido dos ponteiros */
     for (int y = 0; y < n; y++) for (int x = 0; x < n; x++) dst[x * n + (n - 1 - y)] = src[y * n + x];
 }
@@ -657,6 +720,11 @@ static void build_sprites(void) {
     for (int f = 0; f < 2; f++) { Img im = blank(8, 8); draw_missile(&im, f); add_sprite(SPR_MISSILE + f, work, 8, 8, 4, 4); }
     for (int f = 0; f < 4; f++) { Img im = blank(48, 48); draw_hole(&im, f); add_sprite(SPR_HOLE + f, work, 48, 48, 24, 26); }
     for (int f = 0; f < 3; f++) { Img im = blank(32, 48); draw_cape(&im, f); outline(&im); add_sprite(SPR_CAPE + f, work, 32, 48, 16, 45); }
+    { Img im = blank(130, 36); draw_hud_left(&im); add_sprite(SPR_HUD_LEFT, work, 130, 36, 0, 0); }
+    { Img im = blank(52, 18); draw_hud_timer(&im); add_sprite(SPR_HUD_TIMER, work, 52, 18, 0, 0); }
+    { Img im = blank(64, 18); draw_hud_kills(&im); add_sprite(SPR_HUD_KILLS, work, 64, 18, 0, 0); }
+    { Img im = blank(224, 32); draw_hud_boss(&im); add_sprite(SPR_HUD_BOSS, work, 224, 32, 0, 0); }
+    for (int k = 0; k < 2; k++) { Img im = blank(24, 24); draw_avatar(&im, k); add_sprite(SPR_AVATAR + k, work, 24, 24, 0, 0); }
 }
 
 /* ===== Tiles 16x16 ===== */

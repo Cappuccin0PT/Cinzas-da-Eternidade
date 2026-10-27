@@ -28,6 +28,15 @@ O título é animado:
 
 O logótipo vem de `arte/logo.png`, convertido para a paleta do jogo com `tools/converter_logo.py` (precisa do Pillow; só é preciso correr quando o logótipo mudar, porque o `src/logo.h` gerado fica no repositório).
 
+## HUD
+
+- **Canto superior esquerdo:** retrato do personagem, vida (com valor), caixa do nível e barra de experiência.
+- **Topo ao centro:** relógio.
+- **Canto superior direito:** caveira e número de abates.
+- **Fundo ao centro, durante o combate com o boss:** caveira com chifres, placa com o nome e barra de vida.
+
+As molduras são sprites gerados em `tools/gerar_assets.c`; os valores são desenhados por cima pelo jogo.
+
 ## Personagens
 
 Escolhe-se no título (linha "PERSONAGEM", com A ou esquerda/direita). As melhorias passivas são comuns aos dois.

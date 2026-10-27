@@ -65,7 +65,12 @@ enum {
     SPR_MISSILE,                    /* 2 */
     SPR_HOLE = SPR_MISSILE + 2,     /* 4 */
     SPR_CAPE = SPR_HOLE + 4,        /* 3: herói de capa no ecrã de título */
-    SPR_COUNT = SPR_CAPE + 3
+    SPR_HUD_LEFT = SPR_CAPE + 3,    /* moldura: avatar, vida, nível e experiência (130x36) */
+    SPR_HUD_TIMER,                  /* moldura do relógio (52x18) */
+    SPR_HUD_KILLS,                  /* moldura com caveira para os abates (64x18) */
+    SPR_HUD_BOSS,                   /* barra do boss com caveira de chifres e placa do nome (224x32) */
+    SPR_AVATAR,                     /* 2: retratos do ninja e da feiticeira (24x24) */
+    SPR_COUNT = SPR_AVATAR + 2
 };
 typedef struct { uint16_t w, h, ax, ay; uint32_t off; } SprDesc;   /* w já inclui folga par */
 typedef struct { uint16_t x, y; uint8_t spr, flags; } Prop;        /* x,y = pés, em px do mundo */
