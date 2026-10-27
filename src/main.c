@@ -116,6 +116,7 @@ static const MapaDef MAPAS[NMAPAS] = {
 };
 static int mapa;
 static int musicaOn = 1;   /* opção do menu: música ligada ou desligada */
+static int naCutscene;      /* durante a intro a música não muda com o mapa */
 static const Prop *PROPSP; static int NPROPSP;   /* adereços do mapa atual */
 static void load_tiles(void) {
     const uint16_t *s = (const uint16_t *)TILES;
@@ -125,7 +126,7 @@ static void load_map(int m) {
     mapa = m;
     for (int i = 0; i < MAP_W * MAP_H; i++) { mapRam[i] = MAPAS[m].t[i]; attrRam[i] = MAPAS[m].a[i]; }
     PROPSP = MAPAS[m].props; NPROPSP = MAPAS[m].nprops;
-    SOM_LER(som_musica) = musicaOn ? (uint32_t)m : 2u;   /* música do mapa (2 = sem música) */
+    if (!naCutscene) SOM_LER(som_musica) = musicaOn ? (uint32_t)m : FAIXA_NENHUMA;   /* música do mapa */
 }
 static int attr_at(int px, int py) {   /* px,py em píxeis do mundo */
     if (px < 0 || py < 0 || px >= MAP_W * TILE || py >= MAP_H * TILE) return A_SOLID;
@@ -134,6 +135,7 @@ static int attr_at(int px, int py) {   /* px,py em píxeis do mundo */
 
 /* ===== Paleta: base fixa + ciclos ===== */
 static int cyWater, cyRune, fireA, fireB, lightning;
+static int fade = 16;   /* 0 = preto, 16 = cores normais (fades da cutscene) */
 static const uint8_t WATER_SEQ[4] = {M0, M1, M2, M1};
 static const uint8_t FIRE_N[4] = {S0, S1, E1, E2}, FIRE_B[4] = {S1, S2, E2, E3};
 static void palette_write(void) {
@@ -148,8 +150,10 @@ static void palette_write(void) {
     for (int i = 0; i < NPAL; i++) {
         uint8_t c = idx[i];
         if (lightning > 0 && (lightning & 3) != 2 && i) c = PAL_LIGHTER[PAL_LIGHTER[c]];
+        uint16_t v = PAL_CRAM[c];
+        if (fade < 16) { int r = (v & 31) * fade >> 4, g = ((v >> 5) & 31) * fade >> 4, b = ((v >> 10) & 31) * fade >> 4; v = (uint16_t)(r | (g << 5) | (b << 10)); }
         while (!PEN_READY()) {}
-        CRAM[i] = PAL_CRAM[c];
+        CRAM[i] = v;
     }
 }
 
@@ -235,7 +239,7 @@ static void build_vignette(void) {
 }
 
 /* ===== Jogo ===== */
-enum { ST_TITLE, ST_PLAY, ST_LEVELUP, ST_PAUSE, ST_OVER, ST_WIN, ST_INTRO, ST_TRANSIT, ST_CHARSEL, ST_OPTIONS, ST_CREDITS, ST_BYE };
+enum { ST_TITLE, ST_PLAY, ST_LEVELUP, ST_PAUSE, ST_OVER, ST_WIN, ST_INTRO, ST_TRANSIT, ST_CHARSEL, ST_OPTIONS, ST_CREDITS, ST_BYE, ST_CINE };
 #define MENU_STATE(s) ((s) == ST_TITLE || (s) == ST_CHARSEL || (s) == ST_OPTIONS || (s) == ST_CREDITS || (s) == ST_BYE)
 static int state;
 #define FP 8   /* posições em 1/256 de píxel */
@@ -838,8 +842,171 @@ static void title_fx(void) {
         q->x += q->vx; q->y += q->vy; q->vx += (rndi(9) - 4) * 3;
         if (--q->life <= 0 || q->y < 0) q->on = 0; }
 }
+static int first_prop(int y);
+static void draw_title_bg(void);
+static void draw_logo(int x0, int y0, int dissolve);
+/* ===== Cutscene de abertura (40 s, sincronizada com musica/intro.mp3) ===== */
+static const int CENA_INI[9] = {0, 300, 600, 900, 1200, 1500, 1860, 2160, 2400};   /* em passos de 1/60 s */
+static const char *CENA_FALA[8] = {0, 0, "AREN (VOZ BAIXA)", "AREN", "AREN", "CARRASCO", "AREN", 0};
+static const char *CENA_TXT[8] = {"HÁ MIL ANOS, A MORTE FOI DERROTADA.", "MAS A ETERNIDADE TEM FOME.", "AINDA... NÃO.",
+    "QUEM ME CHAMOU?", "ENTÃO VENHAM.", "A TUA ORDEM MORREU CONTIGO.", "ENTÃO VAIS MORRER OUTRA VEZ.", "SOBREVIVE. EVOLUI. RECORDA."};
+static int cineT, cena = -1;
+#define MAXCX 16
+static struct { int32_t x, y; uint8_t on, tipo, anim; } cx_[MAXCX];   /* figurantes: mortos-vivos e horda */
+static int arenX, arenY, carrX, carrY;
+static void cine_start(void) {
+    state = ST_CINE; cineT = 0; cena = -1; naCutscene = 1; fade = 0;
+    for (int i = 0; i < MAXPT; i++) pt[i].on = 0;
+    SOM_LER(som_musica) = musicaOn ? FAIXA_INTRO : FAIXA_NENHUMA;
+}
+static void cine_end(void) {
+    state = ST_TITLE; naCutscene = 0; fade = 16; steps = 0; menuSel = 0; lightning = 0; shake = 0;
+    for (int i = 0; i < MAXPT; i++) pt[i].on = 0;
+    load_map(0);
+    SOM_LER(som_musica) = musicaOn ? 0u : FAIXA_NENHUMA;
+}
+static void cine_cena(int c) {   /* preparação de cada cena */
+    for (int i = 0; i < MAXPT; i++) pt[i].on = 0;
+    for (int i = 0; i < MAXCX; i++) cx_[i].on = 0;
+    if (c == 1) { load_map(1); for (int i = 0; i < 6; i++) { cx_[i].on = 1; cx_[i].tipo = (uint8_t)(i & 1); cx_[i].x = (14 + i * 9) * 16 << FP; cx_[i].y = (48 * 16 + 4 + (i % 3) * 8) << FP; cx_[i].anim = (uint8_t)(i * 5); } }
+    if (c == 2) { load_map(0); arenX = 16 * 16 + 8; arenY = 18 * 16 + 4; }
+    if (c == 4) for (int i = 0; i < 14; i++) { int a = i * 18; cx_[i].on = 1; cx_[i].tipo = (uint8_t)(i % 3 == 0); cx_[i].anim = (uint8_t)i;
+        cx_[i].x = (arenX + (SINT[(a + 64) & 255] * (150 + (i & 3) * 20) >> 8)) << FP; cx_[i].y = (arenY + (SINT[a] * (100 + (i & 3) * 14) >> 8)) << FP; }
+    if (c == 5) { carrX = 160; carrY = 150; }
+    if (c == 6) { arenX = 20; carrX = 300; arenY = carrY = 174; }
+}
+static void cine_step(void) {
+    if (padPressed & (SEGA_CTRL_START | SEGA_CTRL_A)) { cine_end(); return; }   /* saltar */
+    cineT++;
+    int c = 0; while (c < 7 && cineT >= CENA_INI[c + 1]) c++;
+    if (cineT >= CENA_INI[8]) { cine_end(); return; }
+    if (c != cena) { cena = c; cine_cena(c); }
+    int t = cineT - CENA_INI[c], len = CENA_INI[c + 1] - CENA_INI[c];
+    /* fades: a preto entre cenas, exceto dentro do cemitério (cenas 3 a 5) */
+    int fi = (c == 3 || c == 4) ? 16 : t * 16 / 18, fo = (c == 2 || c == 3) ? 16 : (len - t) * 16 / 18;
+    fade = fi < fo ? fi : fo; if (fade > 16) fade = 16;
+    /* efeitos sonoros nos tempos do storyboard */
+    switch (cineT) {
+    case 180: tocar_sfx(SFX_ID_TROVAO); lightning = 7; shake = 4; break;
+    case 360: tocar_sfx(SFX_ID_FOGO); break;
+    case 960: tocar_sfx(SFX_ID_ATTACK); shake = 3; break;
+    case 1260: tocar_sfx(SFX_ID_OSSOS); break;
+    case 1560: tocar_sfx(SFX_ID_PORTA); shake = 3; break;
+    case 1920: tocar_sfx(SFX_ID_IMPACTO); lightning = 5; shake = 10; break;
+    case 2280: tocar_sfx(SFX_ID_CONFIRMAR); break;
+    }
+    if (shake) shake--;
+    steps++;
+    if (c == 0 || c == 6 || c == 7) title_fx();
+    else update_ambient();
+    if (c == 1) {   /* mortos-vivos a vaguear entre as chamas */
+        camX = 12 * 16 + t * (26 * 16) / len; camY = 48 * 16 - 120;
+        for (int i = 0; i < MAXCX; i++) if (cx_[i].on) { cx_[i].x += (i & 1) ? 90 : -70; cx_[i].anim++; }
+    }
+    if (c >= 2 && c <= 4) { camX = arenX - SCR_W / 2; camY = arenY - 20 - SCR_H / 2; }
+    if (c == 2 && t % 3 == 0) add_part(1, (arenX + 120 - t / 2) << FP, (arenY - 30 + (SINT[(t * 4) & 255] >> 5)) << FP, 0, 0, 4, E4);   /* a brasa */
+    if (c == 3 && t > 70 && rndi(2) == 0) add_part(1, (arenX + 12 + rndi(10)) << FP, (arenY - 22 + rndi(22)) << FP, rndi(64) - 32, -(80 + rndi(120)), 30, rndi(2) ? E3 : E4);
+    if (c == 4) {   /* a horda aproxima-se; Aren corta quem chega perto */
+        for (int i = 0; i < MAXCX; i++) if (cx_[i].on) {
+            int dx = arenX - (cx_[i].x >> FP), dy = arenY - (cx_[i].y >> FP), d = dist_approx(dx, dy); if (d < 1) d = 1;
+            cx_[i].x += dx * 170 / d; cx_[i].y += dy * 170 / d; cx_[i].anim++;
+            if (d < 30) { cx_[i].on = 0; add_fx(SPR_PUFF, 4, 6, cx_[i].x >> FP, cx_[i].y >> FP, 0);
+                add_fx(SPR_SMEAR, 3, 3, arenX + (dx < 0 ? -16 : 16), arenY - 24, dx < 0 ? 0 : 2); tocar_sfx(SFX_ID_ATTACK); shake = 2; }
+        }
+        if (rndi(2) == 0) add_part(1, (arenX + 14 + rndi(10)) << FP, (arenY - 30 + rndi(20)) << FP, rndi(64) - 32, -(80 + rndi(100)), 25, E3);
+    }
+    if (c == 5 && t > 90 && carrY < 196) carrY++;   /* o Carrasco sai da cripta */
+    if (c == 6 && t < 60) { arenX += (t & 1) ? 1 : 2; carrX -= (t & 1) ? 1 : 2; }   /* carregam um contra o outro e encontram-se ao centro */
+    if (c == 6 && t == 60) for (int k = 0; k < 6; k++) add_fx(SPR_SPARK, 3, 3, 160 + rndi(30) - 15, 140 + rndi(30) - 15, 0);
+    for (int i = 0; i < MAXFX; i++) if (fx[i].on && ++fx[i].t >= fx[i].n * fx[i].rate) fx[i].on = 0;
+    if (c == 7 && t > 110 && t < 220 && rndi(1) == 0) {   /* o logótipo desfaz-se em cinzas */
+        for (int k = 0; k < 3; k++) add_part(1, (76 + rndi(168)) << FP, (40 + rndi(90)) << FP, rndi(128) - 64, -(30 + rndi(80)), 60 + rndi(40), rndi(3) ? G1 : (rndi(2) ? E2 : G2));
+    }
+}
+static void cine_world(void) {   /* desenha o mapa carregado (tiles e adereços com chamas), sem herói nem HUD */
+    int ce = camX & ~1; if (ce < 0) ce = 0; if (camY < 0) camY = 0;
+    if (ce > MAP_W * TILE - SCR_W) ce = MAP_W * TILE - SCR_W;
+    if (camY > MAP_H * TILE - SCR_H) camY = MAP_H * TILE - SCR_H;
+    if (shake) { camY += rndi(shake + 1) - shake / 2; }
+    camX = ce; hud_dx = 0;
+    draw_tiles(ce, camY);
+    nBrazOn = 0;
+    for (int i = first_prop(camY - 16); i < NPROPSP && PROPSP[i].y < camY + SCR_H + 72; i++) {
+        const Prop *p = &PROPSP[i]; int sx = p->x - ce, sy = p->y - camY;
+        if (sx < -40 || sx > SCR_W + 40) continue;
+        if (p->flags & PF_SH_L) spr(SPR_SH_L, 0, sx, sy); else if (p->flags & PF_SH_M) spr(SPR_SH_M, 0, sx, sy); else if (p->flags & PF_SH_S) spr(SPR_SH_S, 0, sx, sy);
+        spr(p->spr, 0, sx, sy);
+        int fa = (steps / 5 + i) & 3;
+        if (p->flags & PF_BRAZIER) spr(SPR_FLAME + fa, 0, sx, sy - 18);
+        if (p->flags & PF_FIRE) { spr(SPR_FLAME + fa, 0, sx - 16, sy - 44); spr(SPR_FLAME + ((fa + 1) & 3), 0, sx + 2, sy - 52); spr(SPR_FLAME + ((fa + 2) & 3), 0, sx + 18, sy - 40); }
+        if (p->flags & PF_RUINED) spr(SPR_FLAME + fa, 0, sx - 6, sy - 20);
+        if ((p->flags & (PF_BRAZIER | PF_FIRE | PF_RUINED)) && nBrazOn < 24) brazOnScreen[nBrazOn++] = i;
+    }
+}
+static void cine_draw(void) {
+    int c = cena < 0 ? 0 : cena, t = cineT - CENA_INI[c];
+    if (c == 0 || c == 6) draw_title_bg();
+    else if (c == 7) { volatile uint32_t *d = (volatile uint32_t *)FB8; for (int i = 0; i < SCR_W * SCR_H / 4; i++) d[i] = 0x01010101u;
+        for (int i = 0; i < MAXPT; i++) if (pt[i].on) pset(pt[i].x >> FP, pt[i].y >> FP, pt[i].c); }
+    else if (c == 5) {   /* cripta */
+        const uint16_t *src = (const uint16_t *)TCRYPT; volatile uint16_t *dst = FBW;
+        for (int i = 0; i < SCR_W * SCR_H / 2; i++) dst[i] = src[i];
+        spr(SPR_FLAME + ((steps / 5) & 3), 0, 45, 98); spr(SPR_FLAME + ((steps / 5 + 2) & 3), 0, 275, 98);
+    } else cine_world();
+    int ce = camX & ~1;
+    if (c == 1) for (int i = 0; i < MAXCX; i++) if (cx_[i].on) {
+        int fr = cx_[i].tipo ? SPR_HUSK + ((cx_[i].anim >> 4) & 1) : SPR_CRAWL + ((cx_[i].anim >> 3) & 1);
+        spr(cx_[i].tipo ? SPR_SH_M : SPR_SH_S, 0, (cx_[i].x >> FP) - ce, (cx_[i].y >> FP) - camY);
+        spr(fr, (i & 1) ? 0 : 2, (cx_[i].x >> FP) - ce, (cx_[i].y >> FP) - camY); }
+    if (c >= 2 && c <= 4) {
+        int ax = arenX - ce, ay = arenY - camY, pose;
+        if (c == 2) pose = AREN_DEITADO;
+        else if (c == 3) pose = t < 30 ? AREN_DEITADO : t < 60 ? AREN_JOELHOS : t < 70 ? AREN_PE : ((t >> 2) & 1) ? AREN_CHAMAS : AREN_CHAMAS2;
+        else { pose = ((t >> 2) & 1) ? AREN_CHAMAS : AREN_CHAMAS2; for (int i = 0; i < MAXFX; i++) if (fx[i].on && fx[i].base == SPR_SMEAR) pose = AREN_ATAQUE; }
+        spr(SPR_SH_M, 0, ax, ay);
+        if (pose == AREN_DEITADO) spr(SPR_AREN + pose, 0, ax, ay + 2); else spr(SPR_AREN + pose, 0, ax, ay);
+        if (c == 4) for (int i = 0; i < MAXCX; i++) if (cx_[i].on) {
+            int fr = cx_[i].tipo ? SPR_HUSK + ((cx_[i].anim >> 4) & 1) : SPR_CRAWL + ((cx_[i].anim >> 3) & 1);
+            spr(fr, (cx_[i].x >> FP) > arenX ? 2 : 0, (cx_[i].x >> FP) - ce, (cx_[i].y >> FP) - camY); }
+    }
+    if (c >= 1 && c <= 4) {
+        for (int i = 0; i < MAXFX; i++) if (fx[i].on) spr(fx[i].base + fx[i].t / fx[i].rate, fx[i].v, fx[i].x - ce, fx[i].y - camY);
+        for (int i = 0; i < MAXPT; i++) if (pt[i].on) {
+            int sx = (pt[i].x >> FP) - ce, sy = (pt[i].y >> FP) - camY;
+            if (pt[i].kind == 3) { if (((steps + i * 13) & 63) < 40) { pset(sx, sy, V2); pset(sx + 1, sy, V1); } }
+            else { pset(sx, sy, pt[i].c); if (c == 2 && pt[i].c == E4) { pset(sx + 1, sy, E3); pset(sx, sy + 1, E3); pset(sx - 1, sy, E2); } } }
+        for (int i = 0; i < nVig; i++) FB8[vig[i]] = INK;
+    }
+    if (c == 5) {
+        if (t > 20 && t < 100 && ((t >> 3) & 3)) { pset(156, 120, RED); pset(157, 120, RED); pset(163, 120, RED); pset(164, 120, RED); }   /* olhos na escuridão */
+        if (t >= 90) spr(SPR_CARRASCO + (t > 250 ? 1 : 0), 0, carrX, carrY);
+    }
+    if (c == 6) {
+        int clash = t >= 60;
+        spr(SPR_AREN + (clash ? AREN_ATAQUE : AREN_CORRE), 0, arenX + (shake ? rndi(3) - 1 : 0), arenY);
+        spr(SPR_CARRASCO + (clash ? 2 : 1), 0, carrX, carrY);   /* já desenhado virado para a esquerda */
+        for (int i = 0; i < MAXFX; i++) if (fx[i].on) spr(fx[i].base + fx[i].t / fx[i].rate, fx[i].v, fx[i].x, fx[i].y);
+    }
+    if (c == 7) draw_logo(76, 34, t < 110 ? 0 : (t - 110) * 3);
+    /* barras de cinema e legenda com o texto a aparecer letra a letra */
+    if (c < 7) { rect(0, 0, SCR_W, 14, INK); rect(0, SCR_H - 14, SCR_W, 14, INK); }
+    int n = (t - 18) / 2;
+    if (n > 0) {
+        char b[48]; const char *src = CENA_TXT[c]; int k = 0, g = 0;
+        while (src[k] && g < n && k < 46) { if ((uint8_t)src[k] == 0xC3) { b[k] = src[k]; k++; } b[k] = src[k]; k++; g++; }
+        b[k] = 0;
+        if (c == 7) text_c(b, 170, BONE, 1);
+        else {
+            panel(10, 178, 300, CENA_FALA[c] ? 30 : 20);
+            if (CENA_FALA[c]) { text(CENA_FALA[c], 18, 183, E3, 1); text(b, 18, 195, BONE, 1); }
+            else text_c(b, 184, BONE, 1);
+        }
+    }
+    if ((cineT >> 5) & 1) text("START: SALTAR", 236, 4, G1, 1);
+}
 static void step(void) {
     switch (state) {
+    case ST_CINE: cine_step(); padPressed = 0; return;
     case ST_TITLE:   /* menu principal: JOGAR, OPÇÕES, CRÉDITOS, SAIR */
         steps++; title_fx();
         if (padPressed & SEGA_CTRL_UP) menuSel = (menuSel + 3) % 4;
@@ -865,7 +1032,7 @@ static void step(void) {
         if (padPressed & SEGA_CTRL_DOWN) optSel = (optSel + 1) % 3;
         if (padPressed & (SEGA_CTRL_A | SEGA_CTRL_C | SEGA_CTRL_LEFT | SEGA_CTRL_RIGHT)) {
             if (optSel == 0) autoEspada ^= 1;
-            else if (optSel == 1) { musicaOn ^= 1; SOM_LER(som_musica) = musicaOn ? 0u : 2u; }
+            else if (optSel == 1) { musicaOn ^= 1; SOM_LER(som_musica) = musicaOn ? 0u : FAIXA_NENHUMA; }
             else if (padPressed & (SEGA_CTRL_A | SEGA_CTRL_C)) state = ST_TITLE;
         }
         if (padPressed & (SEGA_CTRL_B | SEGA_CTRL_START)) state = ST_TITLE;
@@ -897,7 +1064,7 @@ static void step(void) {
     case ST_OVER: case ST_WIN:
         if (padPressed & SEGA_CTRL_START) { state = ST_TITLE; steps = 0; menuSel = 0;
             for (int i = 0; i < MAXPT; i++) pt[i].on = 0;
-            SOM_LER(som_musica) = musicaOn ? 0u : 2u; }
+            SOM_LER(som_musica) = musicaOn ? 0u : FAIXA_NENHUMA; }
         break;
     }
     if (state != ST_PAUSE && state != ST_LEVELUP && !MENU_STATE(state)) update_ambient();
@@ -1115,7 +1282,7 @@ static void menu_item(const char *s, int y, int sel, int w) {   /* opção do me
     }
     text_c(s, y, sel ? BONE : G2, 1);
 }
-static void draw_title(void) {
+static void draw_title_bg(void) {   /* céu a deslizar + cenário do título (sem herói nem logótipo) */
     hud_dx = 0;
     /* céu com nuvens a deslizar (cópia com volta) */
     int o = ((skyT >> 2) % 320) >> 1;
@@ -1134,11 +1301,23 @@ static void draw_title(void) {
         for (int i = 0; i < LINEW; i++) { uint16_t px = RD16(src + i * 2); if (px) OW_PUT(base + i, px); }
     }
     for (int i = 0; i < MAXPT; i++) if (pt[i].on) pset(pt[i].x >> FP, pt[i].y >> FP, pt[i].c);
-    spr(SPR_CAPE + (steps >> 3) % 3, 0, 92, 170);   /* herói na falésia, capa ao vento */
-    for (int j = 0; j < LOGO_H; j++) {   /* logótipo */
-        const uint8_t *src = LOGO + j * LOGO_W; int base = (2 + j) * LINEW + 76 / 2;
-        for (int i = 0; i < LOGO_W / 2; i++) { uint16_t px = RD16(src + i * 2); if (px) OW_PUT(base + i, px); }
+}
+static void draw_logo(int x0, int y0, int dissolve) {   /* logótipo; dissolve 0..255 apaga píxeis em pontilhado */
+    if (!dissolve) {
+        for (int j = 0; j < LOGO_H; j++) { const uint8_t *src = LOGO + j * LOGO_W; int base = (y0 + j) * LINEW + x0 / 2;
+            for (int i = 0; i < LOGO_W / 2; i++) { uint16_t px = RD16(src + i * 2); if (px) OW_PUT(base + i, px); } }
+        return;
     }
+    for (int j = 0; j < LOGO_H; j++) for (int i = 0; i < LOGO_W; i++) {
+        uint8_t c = LOGO[j * LOGO_W + i]; if (!c) continue;
+        uint32_t h = (uint32_t)(i * 73856093u ^ j * 19349663u); h ^= h >> 13;
+        if ((int)(h & 255) >= dissolve - (LOGO_H - j)) pset(x0 + i, y0 + j, c);
+    }
+}
+static void draw_title(void) {
+    draw_title_bg();
+    spr(SPR_CAPE + (steps >> 3) % 3, 0, 92, 170);   /* herói na falésia, capa ao vento */
+    draw_logo(76, 2, 0);
     { int t = steps % 90; if (t < 12) spr(SPR_SPARK + t / 4, 0, 76 + 83, 2 + 97); }   /* estrela do logótipo a brilhar */
     if (state == ST_TITLE) {
         static const char *OP[4] = {"JOGAR", "OPÇÕES", "CRÉDITOS", "SAIR"};
@@ -1181,6 +1360,7 @@ static void draw_title(void) {
     }
 }
 static void draw(void) {
+    if (state == ST_CINE) { cine_draw(); return; }
     if (MENU_STATE(state)) { draw_title(); return; }
     draw_world();
     if (state != ST_TITLE) draw_hud();
@@ -1221,7 +1401,7 @@ int main(void) {
     load_map(0);
     build_vignette();
     frt_init();
-    state = ST_TITLE; new_game(); steps = 0;
+    new_game(); steps = 0; cine_start();   /* arranque: cutscene de abertura e depois o título */
     uint16_t prev = 0, last = frt_read();
     uint32_t acc = 0;
     for (;;) {

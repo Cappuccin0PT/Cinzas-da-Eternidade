@@ -16,6 +16,23 @@ Sobrevivência por hordas no estilo de Vampire Survivors. O herói ataca sozinho
 | A, B ou C | Confirmar a melhoria; com a espada em modo manual, cada clique é um golpe |
 | START | Começar, pausa |
 
+## Cutscene de abertura
+
+Ao ligar a consola, antes do título, corre uma cutscene de 40 segundos sincronizada com `musica/intro.mp3` (START ou A saltam-na):
+
+| Tempo | Cena | Legenda | Som |
+| --- | --- | --- | --- |
+| 0–5 s | A fortaleza em ruínas sob a lua vermelha | "HÁ MIL ANOS, A MORTE FOI DERROTADA." | Trovão aos 3 s |
+| 5–10 s | A câmara percorre a aldeia em chamas com mortos-vivos | "MAS A ETERNIDADE TEM FOME." | Fogo aos 6 s |
+| 10–15 s | Aren caído no cemitério; uma brasa aproxima-se | Aren: "AINDA... NÃO." | |
+| 15–20 s | Aren ergue-se e a espada incendeia-se | Aren: "QUEM ME CHAMOU?" | Espada aos 16 s |
+| 20–25 s | A horda ataca e Aren corta-a | Aren: "ENTÃO VENHAM." | Ossos aos 21 s |
+| 25–31 s | O Carrasco das Cinzas sai da cripta | Carrasco: "A TUA ORDEM MORREU CONTIGO." | Porta da cripta aos 26 s |
+| 31–36 s | Confronto sob a lua | Aren: "ENTÃO VAIS MORRER OUTRA VEZ." | Impacto aos 32 s |
+| 36–40 s | O logótipo surge e desfaz-se em cinzas | "SOBREVIVE. EVOLUI. RECORDA." | Confirmar aos 38 s |
+
+Os efeitos da cutscene (`sons/trovao.wav`, `fogo.wav`, `ossos.wav`, `porta.wav`, `impacto.wav`, `confirmar.wav`) foram sintetizados com `tools/sintetizar_sfx.py` e podem ser trocados por gravações próprias com o mesmo nome.
+
 ## Ecrã de título
 
 Menu com **JOGAR** (leva à escolha do personagem), **OPÇÕES** (espada do ninja automática ou manual; música ligada ou desligada), **CRÉDITOS** e **SAIR** (despede-se e volta ao título, porque numa consola não há para onde sair).
@@ -83,7 +100,7 @@ Escolhe-se no título (linha "PERSONAGEM", com A ou esquerda/direita). As melhor
 
 **Pátio da Fortaleza em pormenor:** mapa com scroll. Tem um pátio da fortaleza com muralhas, portões, pilares e estandartes; um rio com pontes; um lago; um cemitério; um santuário corrompido com runas; ruínas; e floresta à volta.
 
-**Música:** `musica/Arcade_Rush.mp3` no Pátio da Fortaleza e `musica/aldeia.mp3` na Aldeia de Hinosato, guardadas em 8 bits a 11 025 amostras por segundo e tocadas pelo PWM do 32X a 22 050 por segundo, com interpolação.
+**Música:** `musica/Arcade_Rush.mp3` no título e no Pátio da Fortaleza, `musica/aldeia.mp3` na Aldeia de Hinosato e `musica/intro.mp3` na cutscene, comprimidas em IMA ADPCM (4 bits, 11 025 amostras por segundo) e tocadas pelo PWM do 32X a 22 050 por segundo, com interpolação.
 
 **Efeitos sonoros:** golpe da espada (`sons/attack.wav`), dano no herói (`sons/hurt.wav`), subida de nível (`sons/powerup.wav`), aparecimento do boss (`sons/monster.wav`) e entrada no portal (`sons/teleport.wav`). O golpe tem uma voz própria, para não cortar os outros efeitos.
 
@@ -108,7 +125,7 @@ O workflow copia o exemplo `32x-skeleton` do Marsdev (arranque do 68000 e do SH-
 - **Sprites:** são escritos na área de sobreposição do framebuffer, onde os bytes a 0 são transparentes. Cada sprite tem variantes pré-calculadas: espelhada, deslocada 1 px e a branco quando é atingida.
 - **Paleta:** só é escrita quando o VDP o permite (bit PEN), porque o hardware real ignora escritas fora desse intervalo.
 - **Efeitos sonoros:** o workflow converte os WAV de `sons/` com `tools/converter_sfx.py` para `src/sfx.h`. O SH-2 secundário soma-os à música em duas vozes (golpe da espada e restantes efeitos); o SH-2 principal pede cada efeito através de variáveis partilhadas.
-- **Música:** o workflow converte os MP3 de `musica/` com o ffmpeg e `tools/converter_musica.py` para `src/musica.h` (8 bits, 11 025 Hz, uma faixa por mapa). O SH-2 secundário, que não tem mais nada para fazer, corre `src/slave.c`: interpola as amostras para 22 050 Hz, mistura os efeitos e escreve no PWM sempre que a fila tem espaço. Troca de faixa quando o SH-2 principal muda de mapa. As duas músicas e os efeitos ocupam cerca de 2,6 MB dos 4 MB do cartucho.
+- **Música:** o workflow converte os MP3 de `musica/` com o ffmpeg e `tools/converter_musica.py` para `src/musica.h`, em IMA ADPCM (4 bits por amostra, metade do espaço de 8 bits). O SH-2 secundário corre `src/slave.c`: descomprime em tempo real, interpola para 22 050 Hz, mistura os efeitos e escreve no PWM sempre que a fila tem espaço. Troca de faixa quando o SH-2 principal muda de mapa ou entra na cutscene.
 - **Velocidade:** a lógica corre a 60 passos por segundo medidos pelo temporizador FRT do SH-2. Se a consola desenhar menos imagens, o jogo mantém a velocidade.
 - **Desempenho:** todo o desenho é feito no SH-2 principal. Se a imagem ficar lenta com muitos inimigos, o passo seguinte é pôr o SH-2 secundário a desenhar metade do ecrã.
 

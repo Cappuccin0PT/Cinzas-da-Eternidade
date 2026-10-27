@@ -36,7 +36,7 @@ static void ie(Img *im, float cx, float cy, float rx, float ry, uint8_t c) {
             if (dx * dx + dy * dy <= 1.f) ip(im, x, y, 1, 1, c);
         }
 }
-static uint8_t tmpbuf[64 * 64];
+static uint8_t tmpbuf[224 * 96];
 static void outline(Img *im) { /* contorno exterior de 1 px a tinta */
     int n = im->w * im->h;
     for (int i = 0; i < n; i++) tmpbuf[i] = im->px[i];
@@ -242,7 +242,7 @@ static void draw_shadow(Img *im, int w, int h) {  /* sombra de contacto pontilha
 static uint8_t sprData[3 * 1024 * 1024];
 static uint32_t sprLen;
 static SprDesc desc[SPR_COUNT];
-static uint8_t work[224 * 40], work2[64 * 64];
+static uint8_t work[224 * 96], work2[64 * 64];
 static Img blank(int w, int h) { for (int i = 0; i < w * h; i++) work[i] = 0; Img im = {work, w, h}; return im; }
 
 /* full = 1: 8 variantes (flash, espelhado, deslocado); full = 0: só as 2 deslocadas (adereços, efeitos fixos).
@@ -473,6 +473,7 @@ static void draw_hole(Img *im, int f) {   /* buraco negro 48x48, achatado em per
 /* ===== Ecrã de título: céu com nuvens (horizontalmente contínuo), cenário fixo e herói de capa ===== */
 static int iabs2(int v);
 static uint8_t tsky[TSKY_H][320], tfg[224][320];
+static int iabs2(int v);
 #define TPI 6.2831853f
 static float sn(float v) { return __builtin_sinf(v); }
 static void build_title(void) {
@@ -648,6 +649,122 @@ static void draw_avatar(Img *im, int mago) {   /* 24x24 */
         e(12,9,11,2,C0); p(2,8,20,1,C1); p(6,6,12,2,S1); p(11,6,2,2,M3);
     }
 }
+/* ===== Cutscene: Aren (capuz e capa vermelhos, armadura escura, olhos a brilhar) e o Carrasco das Cinzas ===== */
+static void aren_capuz(Img *im, int cx, int cy) {
+    e(cx, cy, 8, 9, E1); e(cx - 2, cy - 3, 5, 5, E2); p(cx - 7, cy + 5, 3, 4, E1);
+    e(cx + 2, cy + 2, 4.5f, 5, INK);
+    p(cx, cy + 1, 2, 1, M3); p(cx + 3, cy + 1, 2, 1, M3); p(cx + 1, cy + 1, 1, 1, BONE); p(cx + 4, cy + 1, 1, 1, BONE);
+}
+static void aren_espada(Img *im, int x0, int y0, int x1, int y1, int chamas) {
+    int n = (x1 - x0) > (y1 - y0) ? (x1 - x0) : (y1 - y0);
+    for (int i = 0; i <= n; i++) { int x = x0 + (x1 - x0) * i / n, y = y0 + (y1 - y0) * i / n;
+        if (chamas) { p(x - 1, y - 1, 3, 3, i & 1 ? E2 : E3); p(x, y, 1, 1, E4); }
+        else { p(x, y, 2, 1, G2); p(x, y, 1, 1, BONE); } }
+    p(x0 - 3, y0 - 1, 7, 2, S1); p(x0 - 1, y0 - 3, 2, 2, S0);
+}
+static void draw_aren(Img *im, int pose) {
+    if (pose == AREN_DEITADO) {   /* 72x28, de bruços, capa espalhada, mão estendida */
+        p(4,18,20,6,D1); p(4,18,20,1,G1); p(2,22,6,5,INK);
+        e(30,15,22,8,E1); e(26,12,14,4,E2); for (int i = 0; i < 6; i++) p(10 + i * 7, 20 + (i & 1), 3, 2, E0);
+        p(44,14,14,8,D2); p(44,14,14,1,G1);
+        e(58,14,7,7,E1); e(56,12,4,3,E2); e(61,16,3,3,INK);
+        p(60,20,10,3,D2); p(68,20,3,3,S2);
+        for (int i = 0; i < 26; i++) { p(40 + i, 25 + (i > 13), 1, 1, G2); }
+        p(38,24,4,2,S1); return;
+    }
+    if (pose == AREN_JOELHOS) {   /* 48x64, de joelhos, a apoiar-se na espada */
+        for (int y = 26; y < 60; y++) { int w = 6 + (y - 26) / 3; p(20 - w, y, w + 4, 1, (y % 5) ? E1 : E0); p(20 - w, y, 1, 1, E2); }
+        p(18,46,12,6,D1); p(26,50,6,10,D1); p(16,52,6,8,D1); p(15,59,8,3,INK); p(25,59,9,3,INK);
+        p(18,30,14,18,D2); p(18,30,2,18,G1); p(18,44,14,3,S0); p(24,44,2,3,E3);
+        p(30,32,5,12,D2); p(33,43,4,4,D1);
+        aren_espada(im, 35, 44, 38, 62, 0);
+        aren_capuz(im, 26, 24); return;
+    }
+    if (pose == AREN_PE || pose == AREN_CHAMAS || pose == AREN_CHAMAS2) {   /* 48x64, de pé, espada para baixo */
+        int ch = pose != AREN_PE;
+        for (int y = 16; y < 60; y++) { int w = 6 + (y - 16) / 4; p(19 - w, y, w + 5, 1, (y % 6) ? E1 : E0); p(19 - w, y, 1, 1, E2); }
+        p(19,44,6,15,D1); p(27,44,6,15,D1); p(19,44,1,15,G1); p(18,58,8,4,INK); p(27,58,9,4,INK);
+        p(18,24,15,20,D2); p(18,24,2,20,G1); p(21,28,8,1,G1); p(18,40,15,3,S0); p(24,40,3,3,E3);
+        p(15,26,4,14,D1); p(31,26,5,14,D2); p(32,38,5,4,D1);
+        aren_espada(im, 34, 41, 45, 63, ch);
+        if (ch) for (int i = 0; i < 8; i++) { int k = (pose == AREN_CHAMAS2) ? i + 3 : i; p(36 + (k * 5) % 11, 40 + (k * 7) % 20, 2, 2, (k & 1) ? E4 : E3); }
+        aren_capuz(im, 25, 16); return;
+    }
+    if (pose == AREN_CORRE) {   /* 48x64, a carregar para a direita, capa ao vento */
+        for (int y = 14; y < 44; y++) { int w = 10 + (y - 14) / 2; p(18 - w, y, w + 4, 1, (y % 5) ? E1 : E0); p(18 - w, y, 1, 1, E2); }
+        p(16,40,7,14,D1); p(14,52,8,4,D1); p(12,55,8,3,INK); p(26,42,6,12,D1); p(30,52,8,4,D1); p(31,56,9,3,INK);
+        p(19,22,15,20,D2); p(19,22,2,20,G1); p(19,38,15,3,S0);
+        p(14,26,6,4,D2); aren_espada(im, 14, 28, 2, 40, 1);
+        aren_capuz(im, 29, 15); return;
+    }
+    /* AREN_ATAQUE: 64x64, golpe com a espada estendida em chamas */
+    for (int y = 16; y < 50; y++) { int w = 9 + (y - 16) / 3; p(16 - w, y, w + 4, 1, (y % 5) ? E1 : E0); p(16 - w, y, 1, 1, E2); }
+    p(14,44,7,14,D1); p(10,56,9,4,INK); p(26,44,7,12,D1); p(30,54,10,4,INK);
+    p(17,24,15,20,D2); p(17,24,2,20,G1); p(17,40,15,3,S0);
+    p(30,27,8,5,D2); p(37,27,4,4,D1);
+    aren_espada(im, 40, 29, 63, 26, 1);
+    aren_capuz(im, 25, 16);
+}
+static void draw_carrasco(Img *im, int pose) {   /* 96x96, virado para a esquerda */
+    for (int y = 24; y < 92; y++) { int w = 16 + (y - 24) / 3;   /* capa esfarrapada */
+        int x0 = 52 - w / 2 + 6, x1 = 52 + w / 2 + 14;
+        if (y > 82 && ((y + 0) % 4) < 2) x0 += 4;
+        p(x0, y, x1 - x0, 1, (y % 7) ? E0 : INK); if ((y % 9) == 0) p(x1 - 3, y, 3, 1, E1); }
+    p(36,64,12,26,D1); p(58,64,12,26,D1); p(36,64,2,26,D2); p(58,64,2,26,D2);   /* pernas */
+    p(32,88,18,6,INK); p(56,88,18,6,INK); p(34,74,10,3,G1); p(60,74,10,3,G1);
+    for (int y = 30; y < 66; y++) { int w = 14 + (y < 44 ? (y - 30) / 2 : 7 - (y - 44) / 4);   /* tronco */
+        p(52 - w, y, w * 2, 1, D1); p(52 - w, y, 2, 1, G1); }
+    for (int r = 0; r < 4; r++) p(40, 36 + r * 7, 24, 1, D2);
+    p(38,58,28,4,S0); e(52,60,3.5f,3,BONE); p(51,60,1,1,INK); p(53,60,1,1,INK);   /* cinto com caveira */
+    e(36,32,9,7,D2); e(68,32,9,7,D2); e(35,30,6,4,G1); e(67,30,6,4,G1);   /* ombreiras com espigões */
+    for (int k = 0; k < 3; k++) { p(30 + k * 5, 22 - k, 2, 6, G1); p(64 + k * 5, 20 + k, 2, 6, G1); }
+    e(52,18,10,11,D1); e(50,15,6,5,D2);   /* elmo com chifres */
+    for (int i = 0; i < 9; i++) { p(42 - i / 2, 12 - i, 3, 2, G1); p(60 + i / 2, 12 - i, 3, 2, G1); }
+    p(44,20,16,3,INK); p(45,20,4,2,RED); p(54,20,4,2,RED); p(46,20,2,1,E4); p(55,20,2,1,E4);
+    int hx, hy;   /* mão e cutelo gigante */
+    if (pose == 0) { hx = 26; hy = 52; p(26,40,10,14,D1); }
+    else if (pose == 1) { hx = 30; hy = 14; p(30,16,8,24,D1); }
+    else { hx = 18; hy = 46; p(18,42,22,8,D1); }
+    p(hx - 2, hy - 2, 7, 7, D2);
+    int bx0 = hx, by0 = hy, bx1, by1;
+    if (pose == 0) { bx1 = 4; by1 = 92; } else if (pose == 1) { bx1 = 14; by1 = 0; } else { bx1 = 0; by1 = 60; }
+    int n = iabs2(bx1 - bx0) > iabs2(by1 - by0) ? iabs2(bx1 - bx0) : iabs2(by1 - by0);
+    for (int i = 0; i <= n; i++) { int x = bx0 + (bx1 - bx0) * i / n, y = by0 + (by1 - by0) * i / n;
+        if (i < 6) { p(x, y, 3, 3, S0); continue; }
+        p(x - 5, y - 5, 10, 10, G1); p(x - 5, y - 5, 2, 2, G2); if ((i % 9) == 4) p(x + 3, y - 4, 2, 3, INK); if ((i % 13) == 2) p(x - 2, y, 2, 2, E1); }
+}
+static uint8_t tcrypt[224][320];
+static void build_crypt(void) {   /* fundo da cripta: parede de pedra, portal em arco, escadas, pilares com braseiros */
+    seed = 5150;
+    for (int y = 0; y < 224; y++) for (int x = 0; x < 320; x++) {
+        int row = y / 10, off = (row & 1) * 10, b = BAYER[(y & 3) * 4 + (x & 3)];
+        uint8_t c = ((y % 10) == 0 || ((x + off) % 20) == 0) ? INK : (b < 3 ? C0 : D1);
+        if ((y % 10) == 1 && ((x + off) % 20) != 0) c = D2;
+        tcrypt[y][x] = c;
+    }
+    for (int y = 0; y < 224; y++) for (int x = 0; x < 320; x++) {   /* luz dos braseiros na parede */
+        for (int k = 0; k < 2; k++) { int bx = k ? 275 : 45, by = 92; int dx = x - bx, dy = y - by, d2 = dx * dx + dy * dy * 2;
+            if (d2 < 2600) { int lvl = (2600 - d2) * 3 / 2600; int b = BAYER[(y & 3) * 4 + (x & 3)];
+                if (lvl * 4 + 1 > b && tcrypt[y][x] != INK && tcrypt[y][x] != D2) tcrypt[y][x] = (uint8_t)((k ? CY_FIRE_B : CY_FIRE_A) + lvl); } } }
+    int cx = 160, top = 34, hw = 58, bot = 172;   /* portal em arco */
+    for (int y = top - hw / 2 - 10; y < bot; y++) for (int x = cx - hw - 12; x <= cx + hw + 12; x++) {
+        int dx = x - cx, dy = y - (top + hw / 2);
+        int in = (dy >= 0 && iabs2(dx) < hw) || (dy < 0 && dx * dx + dy * dy * 4 < hw * hw);
+        int ring = (dy >= 0 && iabs2(dx) < hw + 10) || (dy < 0 && dx * dx + dy * dy * 4 < (hw + 10) * (hw + 10));
+        if (x < 0 || x >= 320 || y < 0) continue;
+        if (in) { int b = BAYER[(y & 3) * 4 + (x & 3)]; tcrypt[y][x] = (y > 120 && b < (y - 120) / 8) ? M0 : INK; }
+        else if (ring) tcrypt[y][x] = (((x >> 3) + (y >> 3)) & 1) ? D2 : G1;
+    }
+    for (int y = 172; y < 224; y++) { int step = (y - 172) / 9, w = hw + 8 + step * 14;   /* escadas */
+        for (int x = cx - w; x <= cx + w; x++) if (x >= 0 && x < 320) tcrypt[y][x] = ((y - 172) % 9 == 0) ? G1 : ((y - 172) % 9 == 1 ? D2 : D1); }
+    for (int k = 0; k < 2; k++) { int x0 = k ? 262 : 32;   /* pilares e taças dos braseiros */
+        for (int y = 104; y < 224; y++) for (int x = x0; x < x0 + 26; x++) tcrypt[y][x] = (x == x0) ? G1 : (x > x0 + 22 ? INK : D2);
+        for (int y = 98; y < 106; y++) for (int x = x0 - 4; x < x0 + 30; x++) tcrypt[y][x] = (y == 98) ? G1 : D1; }
+    for (int k = 0; k < 6; k++) { int sx = 14 + rndi(292), sy = 20 + rndi(60); if (sx > 90 && sx < 230) continue;   /* caveiras nos nichos */
+        for (int y = 0; y < 10; y++) for (int x = 0; x < 12; x++) tcrypt[sy + y][sx + x] = INK;
+        for (int y = 2; y < 8; y++) for (int x = 3; x < 9; x++) tcrypt[sy + y][sx + x] = BONE;
+        tcrypt[sy + 4][sx + 4] = INK; tcrypt[sy + 4][sx + 7] = INK; tcrypt[sy + 6][sx + 5] = INK; }
+}
 static void rot90(const uint8_t *src, uint8_t *dst, int n) {   /* rotação de 90° no sentido dos ponteiros */
     for (int y = 0; y < n; y++) for (int x = 0; x < n; x++) dst[x * n + (n - 1 - y)] = src[y * n + x];
 }
@@ -725,6 +842,10 @@ static void build_sprites(void) {
     { Img im = blank(64, 18); draw_hud_kills(&im); add_sprite(SPR_HUD_KILLS, work, 64, 18, 0, 0); }
     { Img im = blank(224, 32); draw_hud_boss(&im); add_sprite(SPR_HUD_BOSS, work, 224, 32, 0, 0); }
     for (int k = 0; k < 2; k++) { Img im = blank(24, 24); draw_avatar(&im, k); add_sprite(SPR_AVATAR + k, work, 24, 24, 0, 0); }
+    { Img im = blank(72, 28); draw_aren(&im, AREN_DEITADO); outline(&im); add_sprite(SPR_AREN + AREN_DEITADO, work, 72, 28, 36, 27); }
+    for (int k = AREN_JOELHOS; k <= AREN_CORRE; k++) { Img im = blank(48, 64); draw_aren(&im, k); outline(&im); add_sprite(SPR_AREN + k, work, 48, 64, 24, 63); }
+    { Img im = blank(64, 64); draw_aren(&im, AREN_ATAQUE); outline(&im); add_sprite(SPR_AREN + AREN_ATAQUE, work, 64, 64, 24, 63); }
+    for (int k = 0; k < 3; k++) { Img im = blank(96, 96); draw_carrasco(&im, k); outline(&im); add_sprite(SPR_CARRASCO + k, work, 96, 96, 52, 95); }
 }
 
 /* ===== Tiles 16x16 ===== */
@@ -1098,6 +1219,7 @@ int main(void) {
     build_maps();
     build_font();
     build_title();
+    build_crypt();
     printf("/* Gerado por tools/gerar_assets.c — não editar à mão. */\n#ifndef ASSETS_H\n#define ASSETS_H\n#include <stdint.h>\n#include \"mundo.h\"\n");
     printf("static const uint16_t PAL_CRAM[%d] = {", NCOL);
     for (int i = 0; i < NCOL; i++) { uint32_t c = PAL_HEX[i]; int r = (c>>16)&255, g = (c>>8)&255, b = c&255;
@@ -1121,6 +1243,7 @@ int main(void) {
     dump8("FONT", &font[0][0], NGLYPH * GLYPH_H);
     dump8("TSKY", &tsky[0][0], TSKY_H * 320);
     dump8("TFG", &tfg[0][0], 224 * 320);
+    dump8("TCRYPT", &tcrypt[0][0], 224 * 320);
     printf("static const int16_t SINT[256] = {");
     for (int i = 0; i < 256; i++) printf("%d%s", (int)(__builtin_sinf(i * 6.2831853f / 256.f) * 256.f), i < 255 ? "," : "");
     printf("};\n#endif\n");

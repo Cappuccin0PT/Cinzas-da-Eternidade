@@ -62,14 +62,15 @@ jobs:
           # gera a arte e o fundo no PC (dados da ROM) e copia o código do jogo
           gcc -O2 -std=gnu99 -o gerar tools/gerar_assets.c -lm
           ./gerar > src/assets.h
-          # converte as músicas (8 bits, 11025 Hz, uma por mapa) e os efeitos (16 bits, mesma taxa)
+          # converte as músicas (IMA ADPCM, 11025 Hz: fortaleza e título, aldeia, intro) e os efeitos (16 bits, mesma taxa)
           ffmpeg -hide_banner -loglevel error -y -i musica/Arcade_Rush.mp3 -ac 1 -ar 11025 -f s16le fortaleza.raw
           ffmpeg -hide_banner -loglevel error -y -i musica/aldeia.mp3 -ac 1 -ar 11025 -f s16le aldeia.raw
-          python3 tools/converter_musica.py 11025 FORTALEZA fortaleza.raw ALDEIA aldeia.raw > src/musica.h
-          for n in hurt powerup attack teleport monster; do
+          ffmpeg -hide_banner -loglevel error -y -i musica/intro.mp3 -ac 1 -ar 11025 -f s16le intro.raw
+          python3 tools/converter_musica.py 11025 FORTALEZA fortaleza.raw ALDEIA aldeia.raw INTRO intro.raw > src/musica.h
+          for n in hurt powerup attack teleport monster trovao fogo ossos porta impacto confirmar; do
             ffmpeg -hide_banner -loglevel error -y -i sons/$n.wav -ac 1 -ar 11025 -f s16le $n.raw
           done
-          python3 tools/converter_sfx.py 11025 HURT hurt.raw POWERUP powerup.raw ATTACK attack.raw TELEPORT teleport.raw MONSTER monster.raw > src/sfx.h
+          python3 tools/converter_sfx.py 11025 HURT hurt.raw POWERUP powerup.raw ATTACK attack.raw TELEPORT teleport.raw MONSTER monster.raw TROVAO trovao.raw FOGO fogo.raw OSSOS ossos.raw PORTA porta.raw IMPACTO impacto.raw CONFIRMAR confirmar.raw > src/sfx.h
           # o nosso slave.c substitui o do exemplo: o SH-2 secundário toca a música
           cp src/main.c src/slave.c src/sincronia.h src/mundo.h src/assets.h src/logo.h src/musica.h src/sfx.h build/src/
 

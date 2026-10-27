@@ -70,7 +70,9 @@ enum {
     SPR_HUD_KILLS,                  /* moldura com caveira para os abates (64x18) */
     SPR_HUD_BOSS,                   /* barra do boss com caveira de chifres e placa do nome (224x32) */
     SPR_AVATAR,                     /* 2: retratos do ninja e da feiticeira (24x24) */
-    SPR_COUNT = SPR_AVATAR + 2
+    SPR_AREN = SPR_AVATAR + 2,      /* cutscene: Aren — deitado, de joelhos, de pé, de pé com a espada em chamas (2), a correr, a atacar */
+    SPR_CARRASCO = SPR_AREN + 7,    /* cutscene: Carrasco das Cinzas (96x96) — parado, a erguer, a golpear */
+    SPR_COUNT = SPR_CARRASCO + 3
 };
 typedef struct { uint16_t w, h, ax, ay; uint32_t off; } SprDesc;   /* w já inclui folga par */
 typedef struct { uint16_t x, y; uint8_t spr, flags; } Prop;        /* x,y = pés, em px do mundo */
@@ -91,6 +93,15 @@ typedef struct { uint16_t x, y; uint8_t spr, flags; } Prop;        /* x,y = pés
 #define SFX_ID_ATTACK   3
 #define SFX_ID_TELEPORT 4
 #define SFX_ID_MONSTER  5
+#define SFX_ID_TROVAO   6
+#define SFX_ID_FOGO     7
+#define SFX_ID_OSSOS    8
+#define SFX_ID_PORTA    9
+#define SFX_ID_IMPACTO  10
+#define SFX_ID_CONFIRMAR 11
+#define FAIXA_INTRO 2   /* música da cutscene de abertura */
+#define FAIXA_NENHUMA 3 /* música desligada */
 
-#define TSKY_H 150   /* céu do título com nuvens (desliza na horizontal) */
+#define TSKY_H 150
+enum { AREN_DEITADO, AREN_JOELHOS, AREN_PE, AREN_CHAMAS, AREN_CHAMAS2, AREN_CORRE, AREN_ATAQUE };   /* céu do título com nuvens (desliza na horizontal) */
 #endif
