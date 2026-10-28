@@ -281,16 +281,30 @@ static uint16_t padNow, padPressed;   /* comando: botões carregados e acabados 
 static uint16_t padRaw[2];            /* valores brutos das duas portas (diagnóstico no título) */
 /* Lê as duas portas e junta-as: no MiSTer o comando pode estar na porta 2. Os 4 bits de cima indicam o
    tipo de comando (0xF000 = sem comando) e não são botões, por isso só os 12 de baixo contam. */
+/* Comando: o nosso código do 68000 (src_md/main.c) escreve em COMM12 os botões das duas portas e em
+   COMM14 uma marca, se há comando em cada porta e um contador que sobe sempre. Se a marca não existir
+   (código do 68000 do exemplo), usa a leitura do exemplo. */
+static uint16_t md68kCont;   /* contador do 68000 (diagnóstico no título) */
 #ifndef PREVIEW
-/* Escritos pelo nosso código do 68000 (src_md/main.c): COMM8 = porta 1, COMM10 = porta 2 */
-static uint16_t pad_porta(int p) { return p ? *(volatile uint16_t *)0x2000402A : *(volatile uint16_t *)0x20004028; }
+#define COMM12_SH (*(volatile uint16_t *)0x2000402C)
+#define COMM14_SH (*(volatile uint16_t *)0x2000402E)
 #else
-static uint16_t pad_porta(int p) { return HwMdReadPad(p); }
+static uint16_t pv_c12, pv_c14;
+#define COMM12_SH pv_c12
+#define COMM14_SH pv_c14
 #endif
 static uint16_t ler_comando(void) {
+    uint16_t c14 = COMM14_SH;
+    if (c14 & 0x8000) {
+        uint16_t c12 = COMM12_SH;
+        md68kCont = (uint16_t)(c14 & 0x0FFF);
+        padRaw[0] = (c14 & 0x1000) ? 0xF000 : (uint16_t)(c12 & 0xFF);
+        padRaw[1] = (c14 & 0x2000) ? 0xF000 : (uint16_t)(c12 >> 8);
+        return (uint16_t)((c12 & 0xFF) | (c12 >> 8));
+    }
     uint16_t r = 0;
     for (int port = 0; port < 2; port++) {
-        uint16_t v = pad_porta(port); padRaw[port] = v;
+        uint16_t v = HwMdReadPad(port); padRaw[port] = v;
         if ((v & 0xF000) == 0xF000) continue;
         r |= (uint16_t)(v & 0x0FFF);
     }
@@ -1363,8 +1377,10 @@ static void draw_title(void) {
         for (int i = 0; i < 4; i++) menu_item(OP[i], 128 + i * 15, i == menuSel, 96);
         text("CRIADO POR CAPPUCCIN0PT", 8, 210, G2, 1);
         {   /* diagnóstico do comando: valores brutos das portas 1 e 2 em hexadecimal */
-            static const char HX[] = "0123456789ABCDEF"; char d[24] = "P1 0000  P2 0000";
+            static const char HX[] = "0123456789ABCDEF"; char d[32] = "P1 0000  P2 0000  68K 000";
             for (int k = 0; k < 4; k++) { d[3 + k] = HX[(padRaw[0] >> (12 - 4 * k)) & 15]; d[12 + k] = HX[(padRaw[1] >> (12 - 4 * k)) & 15]; }
+            if (COMM14_SH & 0x8000) for (int k = 0; k < 3; k++) d[22 + k] = HX[(md68kCont >> (8 - 4 * k)) & 15];
+            else { d[22] = '-'; d[23] = '-'; d[24] = '-'; }
             text(d, 4, 4, G1, 1);
         }
         for (int dy = -6; dy <= 6; dy++) for (int dx = -6; dx <= 6; dx++) if (dx * dx + dy * dy <= 36) pset(244 + dx, 213 + dy, (dx * dx + dy * dy > 25) ? M2 : M1);

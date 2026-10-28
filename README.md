@@ -128,7 +128,7 @@ O workflow copia o exemplo `32x-skeleton` do Marsdev (arranque do 68000 e do SH-
 - **Paleta:** só é escrita quando o VDP o permite (bit PEN), porque o hardware real ignora escritas fora desse intervalo.
 - **Efeitos sonoros:** o workflow converte os WAV de `sons/` com `tools/converter_sfx.py` para `src/sfx.h`. O SH-2 secundário soma-os à música em duas vozes (golpe da espada e restantes efeitos); o SH-2 principal pede cada efeito através de variáveis partilhadas.
 - **Música:** o workflow converte os MP3 de `musica/` com o ffmpeg e `tools/converter_musica.py` para `src/musica.h`, em IMA ADPCM (4 bits por amostra, metade do espaço de 8 bits). O SH-2 secundário corre `src/slave.c`: descomprime em tempo real, interpola para 22 050 Hz, mistura os efeitos e escreve no PWM sempre que a fila tem espaço. Troca de faixa quando o SH-2 principal muda de mapa ou entra na cutscene.
-- **Comando:** o 68000 corre `src_md/main.c` (substitui o do exemplo): lê as duas portas com esperas entre mudar a linha TH e ler, como o hardware real e o MiSTer exigem, e passa os botões ao SH-2 pelos registos COMM8 e COMM10.
+- **Comando:** o 68000 corre `src_md/main.c` (substitui o do exemplo): lê as duas portas com esperas entre mudar a linha TH e ler, como o hardware real e o MiSTer exigem, e passa os botões ao SH-2 pelos registos COMM12 e COMM14 (que o exemplo não usa), com as interrupções do 68000 desligadas.
 - **Velocidade:** a lógica corre a 60 passos por segundo medidos pelo temporizador FRT do SH-2. Se a consola desenhar menos imagens, o jogo mantém a velocidade.
 - **Desempenho:** todo o desenho é feito no SH-2 principal. Se a imagem ficar lenta com muitos inimigos, o passo seguinte é pôr o SH-2 secundário a desenhar metade do ecrã.
 
