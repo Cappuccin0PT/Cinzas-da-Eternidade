@@ -281,10 +281,16 @@ static uint16_t padNow, padPressed;   /* comando: botões carregados e acabados 
 static uint16_t padRaw[2];            /* valores brutos das duas portas (diagnóstico no título) */
 /* Lê as duas portas e junta-as: no MiSTer o comando pode estar na porta 2. Os 4 bits de cima indicam o
    tipo de comando (0xF000 = sem comando) e não são botões, por isso só os 12 de baixo contam. */
+#ifndef PREVIEW
+/* Escritos pelo nosso código do 68000 (src_md/main.c): COMM8 = porta 1, COMM10 = porta 2 */
+static uint16_t pad_porta(int p) { return p ? *(volatile uint16_t *)0x2000402A : *(volatile uint16_t *)0x20004028; }
+#else
+static uint16_t pad_porta(int p) { return HwMdReadPad(p); }
+#endif
 static uint16_t ler_comando(void) {
     uint16_t r = 0;
     for (int port = 0; port < 2; port++) {
-        uint16_t v = HwMdReadPad(port); padRaw[port] = v;
+        uint16_t v = pad_porta(port); padRaw[port] = v;
         if ((v & 0xF000) == 0xF000) continue;
         r |= (uint16_t)(v & 0x0FFF);
     }

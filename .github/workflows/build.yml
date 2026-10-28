@@ -76,6 +76,8 @@ jobs:
           python3 tools/converter_sfx.py 11025 HURT hurt.raw POWERUP powerup.raw ATTACK attack.raw TELEPORT teleport.raw MONSTER monster.raw TROVAO trovao.raw FOGO fogo.raw OSSOS ossos.raw PORTA porta.raw IMPACTO impacto.raw CONFIRMAR confirmar.raw > src/sfx.h
           # o nosso slave.c substitui o do exemplo: o SH-2 secundário toca a música
           cp src/main.c src/slave.c src/sincronia.h src/mundo.h src/assets.h src/logo.h src/musica.h src/sfx.h build/src/
+          # o nosso código do 68000 lê os comandos com as esperas que o hardware real e o MiSTer exigem
+          cp src_md/main.c build/src_md/main.c
 
       - name: Compilar a ROM
         run: |
