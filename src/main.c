@@ -278,6 +278,18 @@ static int camX, camY, spawnT, hordeT, lightT, swingSide;
 static int menuSel, autoEspada = 1, swordQueued, charSel, optSel, byeT, skyT;
 static int cdFogo, cdMis, cdBuraco, cdRaio, meteorT, barrageT, barrageLeft, thunderT;   /* magias da feiticeira */   /* menu do título; espada automática (1) ou manual (0) */
 static uint16_t padNow, padPressed;   /* comando: botões carregados e acabados de carregar */
+static uint16_t padRaw[2];            /* valores brutos das duas portas (diagnóstico no título) */
+/* Lê as duas portas e junta-as: no MiSTer o comando pode estar na porta 2. Os 4 bits de cima indicam o
+   tipo de comando (0xF000 = sem comando) e não são botões, por isso só os 12 de baixo contam. */
+static uint16_t ler_comando(void) {
+    uint16_t r = 0;
+    for (int port = 0; port < 2; port++) {
+        uint16_t v = HwMdReadPad(port); padRaw[port] = v;
+        if ((v & 0xF000) == 0xF000) continue;
+        r |= (uint16_t)(v & 0x0FFF);
+    }
+    return r;
+}
 
 #define MAXE 96
 typedef struct { int32_t x, y, kx, ky; int16_t hp; uint8_t type, on, flash, cdOrb, face, anim, burn, burnT, st, stT; int16_t next; } Enemy;
@@ -1344,6 +1356,11 @@ static void draw_title(void) {
         static const char *OP[4] = {"JOGAR", "OPÇÕES", "CRÉDITOS", "SAIR"};
         for (int i = 0; i < 4; i++) menu_item(OP[i], 128 + i * 15, i == menuSel, 96);
         text("CRIADO POR CAPPUCCIN0PT", 8, 210, G2, 1);
+        {   /* diagnóstico do comando: valores brutos das portas 1 e 2 em hexadecimal */
+            static const char HX[] = "0123456789ABCDEF"; char d[24] = "P1 0000  P2 0000";
+            for (int k = 0; k < 4; k++) { d[3 + k] = HX[(padRaw[0] >> (12 - 4 * k)) & 15]; d[12 + k] = HX[(padRaw[1] >> (12 - 4 * k)) & 15]; }
+            text(d, 4, 4, G1, 1);
+        }
         for (int dy = -6; dy <= 6; dy++) for (int dx = -6; dx <= 6; dx++) if (dx * dx + dy * dy <= 36) pset(244 + dx, 213 + dy, (dx * dx + dy * dy > 25) ? M2 : M1);
         text("A", 242, 210, BONE, 1); text("SELECIONAR", 254, 210, G2, 1);
     } else if (state == ST_CHARSEL) {
@@ -1431,7 +1448,7 @@ int main(void) {
         int nsteps;
         if (dt == 0) nsteps = 1;
         else { acc += dt; nsteps = (int)(acc / TICKS_PER_STEP); acc %= TICKS_PER_STEP; if (nsteps > 3) nsteps = 3; }
-        uint16_t pad = HwMdReadPad(0);
+        uint16_t pad = ler_comando();
         padPressed |= (uint16_t)(pad & ~prev); prev = pad; padNow = pad;
         for (int i = 0; i < nsteps; i++) step();
         draw();

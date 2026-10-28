@@ -59,6 +59,9 @@ jobs:
             echo "#endif"
           } > src/sincronia.h
           echo "--- sincronia.h gerado ---"; cat src/sincronia.h
+          echo "--- leitura do comando no exemplo (SH-2 e 68000) ---"
+          grep -n -B2 -A20 "HwMdReadPad" "$SK"/src/hw_32x.c || true
+          grep -rn "COMM8\|COMM10\|A15128\|A1512A\|0xA10003\|0xA10005\|pad" "$SK"/src_md "$SK"/*.s 2>/dev/null | head -60 || true
           # gera a arte e o fundo no PC (dados da ROM) e copia o código do jogo
           gcc -O2 -std=gnu99 -o gerar tools/gerar_assets.c -lm
           ./gerar > src/assets.h
