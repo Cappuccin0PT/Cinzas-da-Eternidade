@@ -74,17 +74,20 @@ ler_comandos:
         rts
 
 """
-m = re.search(r"^[ \t]*\|[^\n]*any other 68000 tasks here[^\n]*\n", s, re.M | re.I)
+CHAMADA = "        bsr     ler_comandos        /* Cinzas da Eternidade: lê os comandos */\n"
+# comentários do assembly: '|' na versão do Chilly Willy, '*' no Marsdev
+m = re.search(r"^[ \t]*[|*;#][^\n]*any other 68000 tasks here[^\n]*\n", s, re.M | re.I)
 if m:
-    s = s[:m.start()] + "        bsr     ler_comandos        /* Cinzas da Eternidade: lê os comandos */\n" + s[m.end():]
+    s = s[:m.start()] + CHAMADA + s[m.end():]
     print("crt1: ciclo principal passa a ler os comandos")
 else:
-    m = re.search(r"^main_loop:[ \t]*\n", s, re.M)
+    # plano B: logo a seguir ao teste dos pedidos em COMM0 (bne para handle_req)
+    m = re.search(r"^[ \t]*bne(?:\.[bsw])?[ \t]+handle_req\b[^\n]*\n", s, re.M | re.I)
     if m:
-        s = s[:m.end()] + "        bsr     ler_comandos        /* Cinzas da Eternidade: lê os comandos */\n" + s[m.end():]
-        print("crt1: ciclo principal passa a ler os comandos (no início de main_loop)")
+        s = s[:m.end()] + CHAMADA + s[m.end():]
+        print("crt1: ciclo principal passa a ler os comandos (a seguir ao teste dos pedidos)")
     else:
-        aviso("não encontrei o ciclo principal (main_loop)")
+        aviso("não encontrei o ciclo principal: os comandos NÃO vão ser lidos")
 # Etiqueta própria no início do ciclo principal (o nome do ciclo muda entre versões do exemplo):
 # é o ponto do código copiado para a RAM onde o ciclo lê os pedidos em COMM0.
 ini = s.find("__m68k_start")
