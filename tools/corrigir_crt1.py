@@ -16,7 +16,7 @@ A correção (tudo no ciclo principal do 68000, que corre na memória dele, sem 
    (SRAM, rato, ecrã da Mega Drive) e algumas dessas rotinas têm esperas sem fim.
 4. Retira a procura de rato no arranque (tem esperas sem limite de tempo).
 5. Põe mais esperas em get_input entre mudar a linha TH do comando e ler o valor.
-Diagnóstico: COMM12 recebe uma marca de posição (A001 início do ciclo, A002 a A005 dentro da leitura,
+Diagnóstico: COMM12 recebe uma marca de posição (A001 início do ciclo, na etiqueta cinzas_ciclo, A002 a A005 dentro da leitura,
 A006 pedido recebido), mostrada no título do jogo como PT.
 
 Uso: python3 tools/corrigir_crt1.py build/m68k_crt1.s
@@ -75,17 +75,29 @@ else:
         print("crt1: ciclo principal passa a ler os comandos (no início de main_loop)")
     else:
         aviso("não encontrei o ciclo principal (main_loop)")
-m = re.search(r"^main_loop:[ \t]*\n", s, re.M)
+# Etiqueta própria no início do ciclo principal (o nome do ciclo muda entre versões do exemplo):
+# é o ponto do código copiado para a RAM onde o ciclo lê os pedidos em COMM0.
+ini = s.find("__m68k_start")
+m = re.compile(r"^[ \t]*move\.w[ \t]+0xA15120,[ \t]*d0.*\n", re.M | re.I).search(s, ini if ini >= 0 else 0)
+tem_ciclo = False
 if m:
-    s = s[:m.end()] + "        move.w  #0xA001,0xA1512C    /* marca: início do ciclo principal */\n" + s[m.end():]
+    s = s[:m.start()] + "cinzas_ciclo:\n        move.w  #0xA001,0xA1512C    /* marca: início do ciclo principal */\n" + s[m.start():]
+    tem_ciclo = True
+    print("crt1: etiqueta cinzas_ciclo no início do ciclo principal")
+    print("--- ciclo principal do 68000 depois da correção ---")
+    i0 = m.start()
+    print(s[max(0, s.rfind("\n", 0, i0 - 200)):i0 + 600])
+    print("---")
+else:
+    aviso("não encontrei a leitura de COMM0 no ciclo principal")
 m = re.search(r"^handle_req:[ \t]*\n", s, re.M)
-if m:
+if m and tem_ciclo:
     s = s[:m.end()] + ("        move.w  #0xA006,0xA1512C    /* marca: pedido recebido */\n"
                        "        move.w  #0,0xA15120         /* aceita o pedido sem o executar (o jogo não usa nenhum) */\n"
-                       "        bra     main_loop\n") + s[m.end():]
+                       "        bra     cinzas_ciclo\n") + s[m.end():]
     print("crt1: pedidos em COMM0 aceites sem os executar")
 else:
-    aviso("não encontrei handle_req")
+    aviso("não encontrei handle_req (os pedidos continuam a ser executados)")
 m = re.search(r"^__m68k_end:", s, re.M)
 if m:
     s = s[:m.start()] + rotina + s[m.start():]
