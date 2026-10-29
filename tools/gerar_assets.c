@@ -650,6 +650,108 @@ static void draw_hud_boss(Img *im) {   /* 224x32 */
     e(10,16,2,2,INK); e(16,16,2,2,INK); p(10,16,1,1,E2); p(16,16,1,1,E2);
     p(12,19,2,2,INK); for (int x = 9; x < 17; x += 2) p(x,23,1,3,INK);
 }
+/* ===== Caçador jogável: capuz e capa verdes, couro, aljava, besta ===== */
+static void draw_cacador_dir(Img *im, int dir, int pose, int f) {
+    int Y = ((pose == IDLE && f == 1) || (pose == RUN && (f == 1 || f == 3))) ? 1 : 0;
+    int la = (pose == RUN && f == 1), lb = (pose == RUN && f == 3), atk = (pose == ATK0 || pose == ATK1);
+    if (dir == SIDE) {
+        static const int rs[4] = {0, 2, 0, -2};
+        int s = pose == RUN ? rs[f] : pose == DASH ? 3 : 0, cl = (pose == RUN || pose == DASH) ? 2 : 0;
+        p(9 - cl, 13 + Y, 4 + cl, 13, V0); p(9 - cl, 13 + Y, 1, 13, V1);                    /* capa */
+        p(10, 9 + Y, 3, 11, S1); p(10, 7 + Y, 1, 3, BONE); p(12, 7 + Y, 1, 3, BONE);          /* aljava */
+        p(13 - s, 25, 3, 4, D2); p(12 - s, 28, 5, 3, S0);                                     /* perna de trás */
+        p(17 + s, 25, 3, 4, D2); p(17 + s, 28, 5, 3, S0); p(17 + s, 28, 5, 1, S1);           /* perna da frente */
+        p(12, 16 + Y, 9, 10, S0); p(12, 16 + Y, 2, 10, S1); p(12, 22 + Y, 9, 2, S1); p(16, 22 + Y, 2, 2, E3);
+        p(14, 16 + Y, 5, 3, V0);
+        e(16, 9 + Y, 6.5f, 6.5f, V0); e(14, 6 + Y, 3.5f, 2.5f, V1); p(9, 5 + Y, 4, 3, V0); p(8 - cl / 2, 4 + Y, 2, 2, V0);
+        e(19, 11 + Y, 3.5f, 3.5f, INK); p(19, 10 + Y, 1, 1, BONE); p(21, 10 + Y, 1, 1, BONE); p(18, 13 + Y, 5, 2, S2); p(18, 14 + Y, 5, 1, S1);
+        if (!atk) { p(18, 18 + Y, 3, 5, S0); p(19, 22 + Y, 8, 2, S1); p(19, 22 + Y, 8, 1, E1); p(26, 18 + Y, 1, 10, G1); p(25, 18 + Y, 1, 10, BONE); p(20, 22 + Y, 2, 2, S2); }
+        else { p(18, 15, 8, 3, S0); p(19, 14, 9, 2, S1); p(19, 14, 9, 1, E1); p(27, 9, 1, 11, G1); p(26, 9, 1, 11, BONE); p(22, 15, 2, 2, S2);
+               if (pose == ATK1) { p(28, 14, 4, 1, E4); p(30, 13, 2, 3, E3); } else p(28, 14, 3, 1, BONE); }
+    } else if (dir == DOWN) {
+        p(7, 14 + Y, 5, 13, V0); p(20, 14 + Y, 5, 13, V0); p(7, 14 + Y, 1, 13, V1);           /* capa aos lados */
+        p(12, 25, 3, 4 - la, D2); p(17, 25, 3, 4 - lb, D2); p(11, 28 - la, 5, 3, S0); p(16, 28 - lb, 5, 3, S0);
+        p(11, 16 + Y, 10, 10, S0); p(11, 16 + Y, 2, 10, S1); p(11, 22 + Y, 10, 2, S1); p(15, 22 + Y, 2, 2, E3);
+        p(12, 16 + Y, 8, 2, V0);
+        e(16, 9 + Y, 7, 7, V0); e(14, 5 + Y, 3.5f, 2, V1); p(15, 1 + Y, 2, 3, V0);           /* capuz */
+        e(16, 11 + Y, 4.5f, 3.5f, INK); p(14, 11 + Y, 1, 1, BONE); p(17, 11 + Y, 1, 1, BONE); p(13, 13 + Y, 6, 2, S2);
+        if (!atk) { p(9, 20 + Y, 14, 2, S1); p(9, 20 + Y, 14, 1, E1); p(8, 17 + Y, 1, 7, G1); p(23, 17 + Y, 1, 7, G1); p(10, 21 + Y, 2, 2, S2); p(20, 21 + Y, 2, 2, S2); }
+        else { p(9, 18, 14, 1, G1); p(9, 19, 14, 1, BONE); p(15, 17, 2, 7, S1); p(15, 24, 2, 2, pose == ATK1 ? E4 : BONE); p(12, 20, 2, 2, S2); p(18, 20, 2, 2, S2); }
+    } else {
+        p(12, 25, 3, 4 - la, D2); p(17, 25, 3, 4 - lb, D2); p(11, 28 - la, 5, 3, S0); p(16, 28 - lb, 5, 3, S0);
+        p(8, 13 + Y, 16, 14, V0); p(8, 13 + Y, 1, 14, V1); p(23, 13 + Y, 1, 14, D1);          /* capa nas costas */
+        for (int k = 0; k < 3; k++) p(11 + k * 4, 18 + Y, 1, 8, D1);
+        p(18, 9 + Y, 3, 11, S1); p(18, 7 + Y, 1, 3, BONE); p(20, 7 + Y, 1, 3, BONE);         /* aljava */
+        e(16, 9 + Y, 7, 7, V0); e(14, 6 + Y, 3.5f, 2.5f, V1); p(15, 1 + Y, 2, 3, V0);
+        if (atk) { p(9, 4, 14, 1, G1); p(15, 2, 2, 7, S1); p(15, 0, 2, 2, pose == ATK1 ? E4 : BONE); }
+    }
+}
+/* ===== Padre jogável: túnica clara com estola dourada, cabelo grisalho, cajado com símbolo sagrado ===== */
+static void draw_padre_dir(Img *im, int dir, int pose, int f) {
+    int Y = ((pose == IDLE && f == 1) || (pose == RUN && (f == 1 || f == 3))) ? 1 : 0;
+    int atk = (pose == ATK0 || pose == ATK1), sw = (pose == RUN) ? ((f & 1) ? 1 : -1) * (f == 0 || f == 2 ? 0 : 1) : 0;
+    int pe = (pose == RUN) ? (f == 1 ? 2 : f == 3 ? -2 : 0) : 0;
+    if (dir == SIDE) {
+        int lean = pose == DASH ? 1 : 0;
+        p(13 - pe, 28, 4, 3, S0); p(17 + pe, 28, 4, 3, S0);                                   /* pés */
+        for (int y = 14; y <= 28; y++) { int w = 5 + (y - 14) / 3, xs = (y > 24) ? sw : 0; p(16 - w + xs + lean, y + (y < 26 ? Y : 0), 2 * w, 1, BONE);
+            p(16 - w + xs + lean, y + (y < 26 ? Y : 0), 2, 1, G2); p(16 + w - 2 + xs + lean, y + (y < 26 ? Y : 0), 2, 1, G2); }
+        p(10 + sw, 28, 13, 1, E3); p(17 + lean, 15 + Y, 2, 13, E3); p(17 + lean, 15 + Y, 2, 1, E4); p(14 + lean, 21 + Y, 6, 1, S1);
+        p(13 + lean, 14 + Y, 8, 3, G2);
+        e(17 + lean, 9 + Y, 4.5f, 5, S2); p(13 + lean, 5 + Y, 4, 7, G1); p(13 + lean, 5 + Y, 8, 2, G1);
+        p(18 + lean, 9 + Y, 1, 1, INK); p(20 + lean, 9 + Y, 1, 1, INK); p(19 + lean, 12 + Y, 2, 1, S1);
+        if (!atk) { p(24, 3 + Y, 1, 27 - Y, S1); p(23, 2 + Y, 3, 1, E3); p(24, 0 + Y, 1, 5, E3); p(19, 16 + Y, 5, 3, BONE); p(22, 17 + Y, 3, 2, S2); }
+        else if (pose == ATK0) { p(23, 0, 1, 24, S1); p(22, 0, 3, 1, E3); p(23, 0, 1, 3, E4); p(19, 12, 5, 4, BONE); p(21, 11, 3, 2, S2);
+            for (int y = 0; y < 7; y++) for (int x = 19; x < 28; x++) { int dx = x - 23, dy = y - 1; if (dx * dx + dy * dy * 2 < 20 && ((x + y) & 1)) ip(im, x, y, 1, 1, E4); } }
+        else { p(20, 15, 11, 1, S1); p(29, 13, 3, 5, E3); p(30, 14, 1, 3, E4); p(19, 15, 4, 3, BONE); p(21, 15, 2, 2, S2); p(31, 15, 1, 1, BONE); }
+    } else if (dir == DOWN) {
+        p(11 - pe / 2, 28, 4, 3, S0); p(17 + pe / 2, 28, 4, 3, S0);
+        for (int y = 14; y <= 28; y++) { int w = 6 + (y - 14) / 3, xs = (y > 24) ? sw : 0; p(16 - w + xs, y + (y < 26 ? Y : 0), 2 * w, 1, BONE);
+            p(16 - w + xs, y + (y < 26 ? Y : 0), 2, 1, G2); p(16 + w - 2 + xs, y + (y < 26 ? Y : 0), 2, 1, G2); }
+        p(9 + sw, 28, 15, 1, E3); p(13, 15 + Y, 2, 13, E3); p(18, 15 + Y, 2, 13, E3); p(15, 17 + Y, 3, 1, E4); p(16, 16 + Y, 1, 3, E4);   /* estola e cruz */
+        p(12, 14 + Y, 9, 2, G2);
+        e(16, 9 + Y, 5, 5.5f, S2); p(11, 5 + Y, 3, 7, G1); p(19, 5 + Y, 3, 7, G1); p(12, 4 + Y, 9, 2, G1);
+        p(14, 9 + Y, 1, 1, INK); p(18, 9 + Y, 1, 1, INK); p(15, 12 + Y, 3, 1, S1);
+        if (!atk) { p(24, 4 + Y, 1, 26 - Y, S1); p(23, 3 + Y, 3, 1, E3); p(24, 1 + Y, 1, 5, E3); p(22, 18 + Y, 3, 2, S2); p(8, 18 + Y, 3, 2, S2); }
+        else { p(24, 0, 1, 22, S1); p(23, 0, 3, 1, E3); p(24, 0, 1, 3, E4); p(22, 10, 3, 2, S2); p(8, 10, 3, 2, S2);
+            for (int y = 0; y < 7; y++) for (int x = 19; x < 30; x++) { int dx = x - 24, dy = y - 1; if (dx * dx + dy * dy * 2 < 22 && ((x + y) & 1)) ip(im, x, y, 1, 1, pose == ATK1 ? BONE : E4); } }
+    } else {
+        p(11 - pe / 2, 28, 4, 3, S0); p(17 + pe / 2, 28, 4, 3, S0);
+        for (int y = 14; y <= 28; y++) { int w = 6 + (y - 14) / 3, xs = (y > 24) ? sw : 0; p(16 - w + xs, y + (y < 26 ? Y : 0), 2 * w, 1, BONE);
+            p(16 - w + xs, y + (y < 26 ? Y : 0), 2, 1, G2); p(16 + w - 2 + xs, y + (y < 26 ? Y : 0), 2, 1, G2); }
+        p(9 + sw, 28, 15, 1, E3); p(15, 15 + Y, 2, 12, G2);
+        e(16, 9 + Y, 5, 5.5f, G1); e(15, 7 + Y, 3, 2.5f, G2); p(12, 14 + Y, 9, 2, G2);
+        if (!atk) { p(7, 4 + Y, 1, 26 - Y, S1); p(6, 3 + Y, 3, 1, E3); p(7, 1 + Y, 1, 5, E3); }
+        else { p(7, 0, 1, 22, S1); p(6, 0, 3, 1, E3); p(7, 0, 1, 3, E4); }
+    }
+}
+static void draw_avatar2(Img *im, int padre) {   /* retratos 24x24 do caçador e do padre */
+    if (!padre) {
+        p(2, 20, 20, 4, S0); p(2, 20, 20, 1, S1); p(3, 14, 4, 10, V0); p(17, 14, 4, 10, V0); p(18, 4, 3, 16, S1); p(18, 2, 1, 3, BONE); p(20, 2, 1, 3, BONE);
+        e(12, 10, 9, 9, V0); e(9, 6, 4, 3, V1); p(11, 0, 2, 3, V0);
+        e(12, 12, 5.5f, 4.5f, INK); p(9, 11, 2, 1, BONE); p(14, 11, 2, 1, BONE); p(8, 15, 8, 3, S2); p(8, 17, 8, 1, S1);
+    } else {
+        p(2, 19, 20, 5, BONE); p(2, 19, 20, 1, G2); p(8, 19, 2, 5, E3); p(14, 19, 2, 5, E3); p(11, 21, 2, 3, E4);
+        e(12, 11, 6.5f, 7.5f, S2); p(5, 4, 4, 11, G1); p(15, 4, 4, 11, G1); p(6, 3, 12, 3, G1);
+        p(9, 10, 2, 1, INK); p(14, 10, 2, 1, INK); p(10, 15, 4, 1, S1); p(8, 9, 3, 1, G1); p(13, 9, 3, 1, G1);
+        p(20, 1, 1, 20, S1); p(19, 1, 3, 1, E3); p(20, 0, 1, 3, E4);
+    }
+}
+static void draw_cruz(Img *im, int f) {   /* 12x12 */
+    if (!f) { p(5, 1, 2, 10, E3); p(2, 4, 8, 2, E3); p(5, 1, 1, 10, E4); p(2, 4, 8, 1, E4); p(5, 4, 2, 2, BONE); }
+    else { for (int i = 0; i < 9; i++) { p(1 + i, 1 + i, 2, 2, E3); p(9 - i, 1 + i, 2, 2, E3); } p(5, 5, 2, 2, BONE); }
+}
+static void draw_frasco(Img *im) { e(4, 5, 3, 3, M2); e(4, 5, 2, 2, M3); p(3, 0, 2, 3, G2); p(3, 4, 1, 1, BONE); }   /* 8x8 */
+static void draw_armadilha(Img *im, int f) {   /* 12x8: dentes de ferro */
+    e(6, 5, 5.5f, 2.5f, D2); e(6, 5, 3.5f, 1.5f, D1);
+    if (!f) for (int k = 0; k < 5; k++) { p(1 + k * 2, 2, 1, 2, G2); p(2 + k * 2, 6, 1, 1, G2); }
+    else { p(1, 3, 10, 2, G1); for (int k = 0; k < 5; k++) p(1 + k * 2, 2, 1, 1, G2); }
+}
+static void draw_falcao(Img *im, int f) {   /* 16x12, virado para a direita */
+    e(8, 7, 4, 2.5f, S1); e(12, 6, 2.5f, 2, S1); p(14, 6, 2, 1, E3); p(12, 5, 1, 1, INK); p(3, 7, 2, 2, S0);
+    if (!f) { for (int i = 0; i < 6; i++) p(5 + i, 1 + i / 2, 2, 1, S0); p(5, 1, 3, 1, G2); }
+    else { for (int i = 0; i < 6; i++) p(5 + i, 11 - i / 2, 2, 1, S0); p(5, 11, 3, 1, G2); }
+}
 static void draw_avatar(Img *im, int mago) {   /* 24x24 */
     if (!mago) {
         p(2,21,20,3,D2); p(2,21,20,1,G1); p(19,1,2,6,M2);
@@ -814,6 +916,94 @@ static void ninja_detail(uint8_t *px, int pose, int Y) {
     if (pose != ATK0 && pose != ATK1) for (int y = 18; y < 26; y++) dpx(px, 22 + (y & 1), y, (y % 3) ? M3 : M1);   /* cabo da katana */
     for (int y = 50; y < 58; y += 3) for (int x = 26; x < 42; x++) dpx(px, x, y, D1);   /* ligaduras das pernas */
 }
+/* Caçador (32x32, de lado): capuz e capa verdes, roupa de couro, aljava, besta. pose 0 parado, 1 a apontar */
+static void draw_cacador(Img *im, int pose) {
+    p(9,13,4,13,V0); p(9,13,1,13,V1);                                       /* capa atrás */
+    p(10,9,3,11,S1); p(10,7,1,3,BONE); p(12,7,1,3,BONE); p(11,8,1,2,G2);    /* aljava com setas */
+    p(13,25,3,4,D2); p(17,25,3,4,D2); p(12,28,5,3,S0); p(17,28,5,3,S0); p(17,28,5,1,S1);   /* pernas e botas */
+    p(12,16,9,10,S0); p(12,16,2,10,S1); p(12,22,9,2,S1); p(16,22,2,2,E3);   /* túnica de couro e cinto */
+    p(14,16,5,3,V0);                                                        /* gola da capa */
+    e(16,9,6.5f,6.5f,V0); e(14,6,3.5f,2.5f,V1); p(9,5,4,3,V0); p(8,4,2,2,V0);   /* capuz pontiagudo */
+    e(19,11,3.5f,3.5f,INK); p(19,10,1,1,BONE); p(21,10,1,1,BONE); p(18,13,5,2,S2); p(18,14,5,1,S1);   /* rosto na sombra */
+    if (pose == 0) { p(18,18,3,5,S0); p(19,22,8,2,S1); p(19,22,8,1,E1); p(26,18,1,10,G1); p(25,18,1,10,BONE); p(20,22,2,2,S2); }
+    else { p(18,15,8,3,S0); p(19,14,9,2,S1); p(19,14,9,1,E1); p(27,9,1,11,G1); p(26,9,1,11,BONE); p(28,14,3,1,BONE); p(31,14,1,1,G2); p(22,15,2,2,S2); }
+}
+/* Padre (32x32, de lado): túnica clara com estola dourada, cabelo grisalho, cajado com símbolo sagrado.
+   pose 0 parado, 1 a orar com o cajado erguido e luz */
+static void draw_padre(Img *im, int pose) {
+    for (int y = 14; y <= 29; y++) { int w = 5 + (y - 14) / 3; p(16 - w, y, 2 * w, 1, BONE); p(16 - w, y, 2, 1, G2); p(16 + w - 2, y, 2, 1, G2); }
+    p(10,29,13,1,E3); p(17,15,2,14,E3); p(17,15,2,1,E4); p(14,21,6,1,S1);   /* bainha e estola dourada, cordão */
+    p(13,14,8,3,G2);                                                        /* gola */
+    e(17,9,4.5f,5,S2); p(13,5,4,7,G1); p(13,5,8,2,G1); p(18,9,1,1,INK); p(20,9,1,1,INK); p(19,12,2,1,S1);   /* cabeça */
+    if (pose == 0) {
+        p(24,3,1,27,S1); p(23,2,3,1,E3); p(24,0,1,5,E3); p(24,0,1,1,E4);    /* cajado */
+        p(19,16,5,3,BONE); p(22,17,3,2,S2);
+    } else {
+        p(23,0,1,24,S1); p(22,0,3,1,E3); p(23,0,1,3,E4);
+        p(19,12,5,4,BONE); p(21,11,3,2,S2);
+        for (int y = 0; y < 9; y++) for (int x = 18; x < 30; x++) { int dx = x - 23, dy = y - 1; if (dx * dx + dy * dy * 2 < 30 && ((x + y) & 1)) ip(im, x, y, 1, 1, E4); }
+    }
+}
+/* Rei das Cinzas, o boss final (64x64, de frente): coroa dourada com gema, chifres curvos em faixas,
+   rosto escuro com olhos roxos, barba branca, capa escura de pelo, gemas no peito, tabardo com debrum azul,
+   braçadeiras douradas e garras. f: 0 e 1 (olhos e gema a pulsar, capa a mexer) */
+static void rei_chifre(Img *im, int lado, int f) {
+    for (int i = 0; i < 20; i++) {   /* sai para o lado e depois sobe a curvar, cada vez mais fino */
+        float a = i / 19.f;
+        int off = 6 + (int)(11 * __builtin_sinf(a * 1.45f)), y = 12 - (int)(12 * a * a);
+        int x = 32 + lado * off, w = 4 - i / 6; uint8_t c = ((i + f) % 4 < 2) ? E3 : E2; if (i > 16) c = E4;
+        int x0 = lado < 0 ? x - w + 1 : x;
+        p(x0, y, w, 2, c); p(x0, y + 1, w, 1, (c == E3) ? E2 : E1);
+    }
+}
+static void draw_rei(Img *im, int f) {
+    for (int y = 18; y < 62; y++) {   /* capa de pelo escura, aberta em baixo */
+        int w = 11 + (y - 18) * 11 / 20; if (w > 29) w = 29;
+        int bico = ((y + f) % 5 == 0) ? 1 : 0;
+        p(32 - w - bico, y, 2 * w + 2 * bico, 1, M0); p(32 - w - bico, y, 2, 1, C0); p(32 + w + bico - 2, y, 2, 1, C0);
+    }
+    for (int k = 0; k < 8; k++) { int x = 6 + k * 7 + f; p(x, 59 + (k & 1), 3, 3, M0); }   /* franjas da capa */
+    for (int k = 0; k < 7; k++) { p(19 + k * 4, 17 + (k & 1), 3, 3, M0); p(20 + k * 4, 16, 1, 1, C0); }   /* gola de pelo */
+    p(22, 46, 8, 12, D1); p(34, 46, 8, 12, D1); p(22, 46, 1, 12, M1); p(41, 46, 1, 12, M1);   /* pernas */
+    p(20, 57, 11, 4, M0); p(33, 57, 11, 4, M0);
+    for (int k = 0; k < 3; k++) { p(20 + k * 4, 61, 2, 2, BONE); p(34 + k * 4, 61, 2, 2, BONE); }   /* garras dos pés */
+    p(21, 40, 22, 8, M0); p(21, 46, 22, 1, M3); p(21, 40, 22, 1, M1);   /* saia escura com debrum */
+    p(29, 40, 7, 18, D1); p(29, 40, 1, 18, M3); p(35, 40, 1, 18, M3); p(30, 57, 5, 1, M3); p(31, 58, 3, 1, M3); p(32, 59, 1, 1, M3);   /* tabardo */
+    p(31, 46, 3, 1, E3); p(30, 47, 1, 2, E3); p(34, 47, 1, 2, E3); p(32, 49, 1, 3, E3); p(31, 52, 3, 1, E3);   /* símbolo dourado */
+    p(23, 20, 18, 20, S0); p(23, 20, 2, 20, S1); p(39, 20, 2, 20, E0);   /* tronco */
+    for (int k = 0; k < 3; k++) p(26, 31 + k * 3, 12, 1, E0);
+    p(22, 38, 20, 3, E3); p(22, 38, 20, 1, E4); p(22, 40, 20, 1, E1);   /* cinto dourado */
+    p(16, 22, 6, 14, S0); p(42, 22, 6, 14, S0); p(16, 22, 1, 14, S1); p(47, 22, 1, 14, E0);   /* braços */
+    p(15, 34, 8, 5, E3); p(41, 34, 8, 5, E3); p(15, 34, 8, 1, E4); p(41, 34, 8, 1, E4);   /* braçadeiras */
+    p(16, 39, 6, 6, S0); p(42, 39, 6, 6, S0);   /* mãos com garras */
+    for (int k = 0; k < 3; k++) { p(16 + k * 2, 45, 1, 2, BONE); p(43 + k * 2, 45, 1, 2, BONE); }
+    for (int k = 0; k < 2; k++) {   /* ombreiras douradas arredondadas com espigões */
+        int cx = k ? 45 : 19, d = k ? 1 : -1;
+        e(cx, 20, 5.5f, 3.5f, E3); e(cx - d, 19, 3, 1.5f, E4); p(cx - 4, 22, 9, 1, E1);
+        p(cx + d * 3, 14, 2, 5, E3); p(cx + d * 3, 13, 1, 1, E4); p(cx, 15, 2, 3, E2); }
+    #define GEMA(cx, cy) do { p((cx) - 1, (cy) - 2, 3, 5, E3); p((cx) - 2, (cy) - 1, 5, 3, E3); p((cx), (cy) - 1, 1, 3, E2); p((cx) - 1, (cy), 3, 1, E2); p((cx), (cy), 1, 1, f ? E4 : E3); } while (0)
+    GEMA(32, 28); GEMA(26, 24); GEMA(38, 24); GEMA(32, 39); GEMA(19, 36); GEMA(45, 36);
+    rei_chifre(im, -1, f); rei_chifre(im, 1, f);
+    e(32, 11, 6, 5.5f, S0); p(26, 8, 13, 2, E0);   /* rosto */
+    p(27, 10, 4, 2, C1); p(34, 10, 4, 2, C1); p(28, 10, 2, 1, f ? BONE : C1); p(35, 10, 2, 1, f ? BONE : C1);   /* olhos roxos a brilhar */
+    p(29, 14, 7, 2, INK); for (int x = 29; x < 36; x += 2) p(x, 14, 1, 1, BONE);   /* sorriso com dentes */
+    for (int y = 16; y < 27; y++) { int w = 7 - (y - 16) / 3 + ((y & 1) ? 1 : 0); p(32 - w, y, 2 * w, 1, y < 23 ? BONE : G2); }   /* barba */
+    p(28, 25, 1, 2, G2); p(35, 25, 1, 2, G2); p(32, 27, 1, 1, G2);
+    p(25, 4, 15, 3, E3); p(25, 4, 15, 1, E4); p(25, 6, 15, 1, E1);   /* coroa */
+    for (int k = 0; k < 3; k++) { int x = 26 + k * 6; p(x, 1, 3, 3, E3); p(x + 1, 0, 1, 1, E4); }
+    p(31, 0, 3, 4, E3); p(32, 0, 1, 1, E4);
+    GEMA(32, 5);
+    #undef GEMA
+}
+static void big_de(int id, void (*fn)(Img *, int), int pose) {   /* versão grande (64x64) a partir de um desenho de 32x32 */
+    static uint8_t s32[32 * 32];
+    Img im = {s32, 32, 32}; for (int i = 0; i < 32 * 32; i++) s32[i] = 0;
+    fn(&im, pose);
+    scale2x(s32, 32, 32, bigA); auto_shade(bigA, 64, 64);
+    Img big = {bigA, 64, 64}; outline(&big);
+    add_big(id, bigA, 64, 64);
+}
+static void mago_lado(Img *im, int pose) { draw_mago(im, SIDE, pose ? ATK1 : IDLE, 0); }
 static void build_cine_sprites(void) {
     static const int pose[7] = {IDLE, DASH, IDLE, ATK0, ATK0, RUN, ATK1};
     static const int fr[7]   = {0,    0,    0,    0,    0,    1,   0};
@@ -839,6 +1029,18 @@ static void build_cine_sprites(void) {
         auto_shade(bigA, 128, 128);
         Img big = {bigA, 128, 128}; outline(&big);
         add_big(SPR_CARRASCO + k, bigA, 128, 128);
+    }
+    big_de(SPR_HIST + 0, mago_lado, 0); big_de(SPR_HIST + 1, mago_lado, 1);
+    big_de(SPR_HIST + 2, draw_cacador, 0); big_de(SPR_HIST + 3, draw_cacador, 1);
+    big_de(SPR_HIST + 4, draw_padre, 0); big_de(SPR_HIST + 5, draw_padre, 1);
+    for (int k = 0; k < 2; k++) {   /* Rei das Cinzas ampliado (128x128) */
+        static uint8_t s64r[64 * 64];
+        Img im = {s64r, 64, 64}; for (int i = 0; i < 64 * 64; i++) s64r[i] = 0;
+        draw_rei(&im, k); outline(&im);
+        for (int i = 0; i < 64 * 64; i++) if (s64r[i] == INK) s64r[i] = 0;   /* o contorno fino é refeito depois de ampliar */
+        scale2x(s64r, 64, 64, bigA); auto_shade(bigA, 128, 128);
+        Img big = {bigA, 128, 128}; outline(&big);
+        add_big(SPR_REI + k, bigA, 128, 128);
     }
 }
 static uint8_t tcrypt[224][320];
@@ -939,6 +1141,16 @@ static void build_sprites(void) {
             draw_mago(&im, d, pose, f); outline(&im); add_sprite_full(SPR_MAGO + d * 9 + k, work, 32, 32, 16, 31);
         }
     }
+    {   /* caçador e padre: mesmas poses e frames do ninja */
+        static const int poses[9] = {IDLE, IDLE, RUN, RUN, RUN, RUN, ATK0, ATK1, DASH};
+        static const int frames[9] = {0, 1, 0, 1, 2, 3, 0, 0, 0};
+        for (int quem = 0; quem < 2; quem++) for (int d = 0; d < 3; d++) for (int k = 0; k < 9; k++) {
+            Img im = blank(32, 32); int pose = poses[k], f = frames[k];
+            if (pose == DASH && d != SIDE) { pose = RUN; f = 1; }
+            if (quem) draw_padre_dir(&im, d, pose, f); else draw_cacador_dir(&im, d, pose, f);
+            outline(&im); add_sprite_full((quem ? SPR_PADRE : SPR_CACADOR) + d * 9 + k, work, 32, 32, 16, 31);
+        }
+    }
     for (int f = 0; f < 2; f++) { Img im = blank(12, 12); draw_fireball(&im, f); outline(&im); add_sprite(SPR_FIREBALL + f, work, 12, 12, 6, 6); }
     for (int f = 0; f < 4; f++) { Img im = blank(40, 40); draw_explosion(&im, f); add_sprite(SPR_EXPLO + f, work, 40, 40, 20, 22); }
     for (int f = 0; f < 2; f++) { Img im = blank(16, 24); draw_meteor(&im, f); outline(&im); add_sprite(SPR_METEOR + f, work, 16, 24, 8, 22); }
@@ -951,6 +1163,11 @@ static void build_sprites(void) {
     { Img im = blank(64, 18); draw_hud_kills(&im); add_sprite(SPR_HUD_KILLS, work, 64, 18, 0, 0); }
     { Img im = blank(224, 32); draw_hud_boss(&im); add_sprite(SPR_HUD_BOSS, work, 224, 32, 0, 0); }
     for (int k = 0; k < 2; k++) { Img im = blank(24, 24); draw_avatar(&im, k); add_sprite(SPR_AVATAR + k, work, 24, 24, 0, 0); }
+    for (int k = 0; k < 2; k++) { Img im = blank(24, 24); draw_avatar2(&im, k); add_sprite(SPR_AVATAR2 + k, work, 24, 24, 0, 0); }
+    for (int f = 0; f < 2; f++) { Img im = blank(12, 12); draw_cruz(&im, f); outline(&im); add_sprite(SPR_CRUZ + f, work, 12, 12, 6, 6); }
+    { Img im = blank(8, 8); draw_frasco(&im); outline(&im); add_sprite(SPR_FRASCO, work, 8, 8, 4, 4); }
+    for (int f = 0; f < 2; f++) { Img im = blank(12, 8); draw_armadilha(&im, f); outline(&im); add_sprite(SPR_ARMADILHA + f, work, 12, 8, 6, 5); }
+    for (int f = 0; f < 2; f++) { Img im = blank(16, 12); draw_falcao(&im, f); outline(&im); add_sprite_full(SPR_FALCAO + f, work, 16, 12, 8, 6); }
     build_cine_sprites();
 }
 

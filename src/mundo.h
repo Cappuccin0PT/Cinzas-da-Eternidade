@@ -73,7 +73,16 @@ enum {
     SPR_AREN = SPR_AVATAR + 2,      /* cutscene: ninja ampliado (64x64) — deitado, a erguer-se, de pé, espada em chamas (2), a correr, a atacar */
     SPR_CARRASCO = SPR_AREN + 7,    /* cutscene: Gorgomusgo ampliado (128x128) — andar 0, andar 1, aviso */
     SPR_ESQ_ATK = SPR_CARRASCO + 3, /* esqueleto: lâmina erguida (aviso), golpe */
-    SPR_COUNT = SPR_ESQ_ATK + 2
+    SPR_HIST = SPR_ESQ_ATK + 2,     /* intro (64x64): feiticeira (parada, magia), caçador (parado, a apontar), padre (parado, a orar) */
+    SPR_REI = SPR_HIST + 6,         /* intro: Rei das Cinzas, o boss final (128x128), 2 frames */
+    SPR_CACADOR = SPR_REI + 2,      /* caçador jogável: 3 direções x 9 frames */
+    SPR_PADRE = SPR_CACADOR + 27,   /* padre jogável: 3 direções x 9 frames */
+    SPR_AVATAR2 = SPR_PADRE + 27,   /* 2: retratos do caçador e do padre (24x24) */
+    SPR_CRUZ = SPR_AVATAR2 + 2,     /* 2: cruz a girar */
+    SPR_FRASCO = SPR_CRUZ + 2,      /* 1: frasco de água benta */
+    SPR_ARMADILHA = SPR_FRASCO + 1, /* 2: aberta, fechada */
+    SPR_FALCAO = SPR_ARMADILHA + 2, /* 2: asas em cima, asas em baixo */
+    SPR_COUNT = SPR_FALCAO + 2
 };
 typedef struct { uint16_t w, h, ax, ay; uint32_t off; } SprDesc;   /* w já inclui folga par */
 typedef struct { uint16_t x, y; uint8_t spr, flags; } Prop;        /* x,y = pés, em px do mundo */

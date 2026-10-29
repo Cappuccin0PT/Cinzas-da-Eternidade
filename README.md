@@ -16,24 +16,24 @@ Sobrevivência por hordas no estilo de Vampire Survivors. O herói ataca sozinho
 | A, B ou C | Confirmar a melhoria; com a espada em modo manual, cada clique é um golpe |
 | START | Começar, pausa |
 
-## Cutscene de abertura
+## Intro: a lenda
 
-Ao ligar a consola, antes do título, corre uma cutscene de 40 segundos sincronizada com `musica/intro.mp3` (START ou A saltam-na):
+Ao ligar a consola, antes do título, a história é contada em 10 quadros ilustrados, ao estilo da intro de Streets of Rage 2: cada quadro tem fundo animado e personagens grandes dentro de uma moldura, e o texto aparece letra a letra por baixo (START ou A saltam a intro).
 
-| Tempo | Cena | Legenda | Som |
-| --- | --- | --- | --- |
-| 0–5 s | A fortaleza em ruínas sob a lua vermelha | "HÁ MIL ANOS, A MORTE FOI DERROTADA." | Trovão aos 3 s |
-| 5–10 s | A câmara percorre a aldeia em chamas com mortos-vivos | "MAS A ETERNIDADE TEM FOME." | Fogo aos 6 s |
-| 10–15 s | Aren caído no cemitério; uma brasa aproxima-se | Aren: "AINDA... NÃO." | |
-| 15–20 s | Aren ergue-se e a espada incendeia-se | Aren: "QUEM ME CHAMOU?" | Espada aos 16 s |
-| 20–25 s | A horda ataca e Aren corta-a | Aren: "ENTÃO VENHAM." | Ossos aos 21 s |
-| 25–31 s | O Gorgomusgo sai da cripta | Gorgomusgo: "A TUA ORDEM MORREU CONTIGO." | Porta da cripta aos 26 s |
-| 31–36 s | Confronto sob a lua | Aren: "ENTÃO VAIS MORRER OUTRA VEZ." | Impacto aos 32 s |
-| 36–40 s | O logótipo surge e desfaz-se em cinzas | "SOBREVIVE. EVOLUI. RECORDA." | Confirmar aos 38 s |
+1. Uma tempestade de cinza cai sobre a fortaleza.
+2. Os mortos acordam e a aldeia arde.
+3. Uma brasa pousa sobre o túmulo de um guerreiro.
+4. Aren, o último ninja da Ordem das Cinzas, renasce para expulsar o mal da terra.
+5. Aren acende três chamas e chama três aliados.
+6. A feiticeira das Torres de Bruma.
+7. O caçador dos Bosques Negros.
+8. O padre do Santuário Corrompido.
+9. Juntos, enfrentarão o Rei das Cinzas, o boss final (para já só aparece na intro).
+10. O logótipo desfaz-se em cinzas: "SOBREVIVE. EVOLUI. RECORDA."
 
-As personagens da cutscene são as do jogo (o ninja, aqui chamado Aren, e o Gorgomusgo), ampliadas ao dobro com Scale2x a partir dos mesmos desenhos, com sombreado e detalhes acrescentados.
+As personagens grandes são as do jogo ampliadas ao dobro com Scale2x a partir dos mesmos desenhos. O caçador e o padre também são jogáveis.
 
-Os efeitos da cutscene (`sons/trovao.wav`, `fogo.wav`, `ossos.wav`, `porta.wav`, `impacto.wav`, `confirmar.wav`) foram sintetizados com `tools/sintetizar_sfx.py` e podem ser trocados por gravações próprias com o mesmo nome.
+Os efeitos da intro (`sons/trovao.wav`, `fogo.wav`, `confirmar.wav`, entre outros) foram sintetizados com `tools/sintetizar_sfx.py` e podem ser trocados por gravações próprias com o mesmo nome.
 
 ## Ecrã de título
 
@@ -58,21 +58,29 @@ As molduras são sprites gerados em `tools/gerar_assets.c`; os valores são dese
 
 ## Personagens
 
-Escolhe-se no título (linha "PERSONAGEM", com A ou esquerda/direita). As melhorias passivas são comuns aos dois.
+Escolhe-se em JOGAR, com esquerda e direita. As melhorias passivas são comuns a todos.
 
 | Personagem | Vida | Armas |
 | --- | --- | --- |
 | Ninja | 100 | Lâmina (automática ou manual), Brasas orbitais, Faúlha |
 | Feiticeira | 85 | Bola de Fogo, Mísseis Arcanos, Buraco Negro, Relâmpago em Cadeia |
+| Caçador | 90 | Besta, Armadilhas, Falcão |
+| Padre | 110 | Luz Sagrada, Água Benta, Cruz |
 
-**Magias da feiticeira** (5 níveis; a melhoria seguinte ao nível 5 é a evolução):
+As armas da feiticeira, do caçador e do padre têm 5 níveis; a melhoria seguinte ao nível 5 é a evolução:
 
-| Magia | Níveis 2 a 5 | Evolução |
+| Arma | O que faz | Evolução |
 | --- | --- | --- |
-| Bola de Fogo: explode em área | explosão maior, +1 bola, queima os inimigos, +dano e +1 bola | Chuva de Meteoros: meteoros caem à volta, com aviso vermelho no chão |
-| Mísseis Arcanos: perseguem os inimigos | +1 míssil, mais velocidade, 1 ricochete, +2 mísseis e +1 ricochete | Barragem Arcana: 24 mísseis seguidos |
-| Buraco Negro: puxa os inimigos e fere-os | raio maior, mais força de atração, dura mais, +raio e +dano | Singularidade: atrai com mais força e explode no fim |
-| Relâmpago em Cadeia: salta entre inimigos | +1 salto, mais alcance, +1 salto e críticos, +2 saltos | Deus do Trovão: raios caem sobre inimigos à tua volta |
+| Bola de Fogo | Explode em área; queima | Chuva de Meteoros |
+| Mísseis Arcanos | Perseguem; ricocheteiam | Barragem Arcana |
+| Buraco Negro | Puxa e fere | Singularidade (explode no fim) |
+| Relâmpago em Cadeia | Salta entre inimigos; críticos | Deus do Trovão |
+| Besta | Setas ao mais perto, que atravessam inimigos | Chuva de Setas (caem do céu sobre os inimigos) |
+| Armadilhas | Ficam no chão; prendem e ferem quem as pisa | Campo Minado (explodem) |
+| Falcão | Voa à tua volta e mergulha sobre os inimigos | Bando de Falcões (três) |
+| Luz Sagrada | Aura que fere quem se aproxima; empurra | Santuário (aura maior que cura) |
+| Água Benta | Frascos que deixam poças que ferem | Inundação Sagrada (poças enormes que atrasam) |
+| Cruz | Vai e volta como um bumerangue, atravessando inimigos | Cruzes dos 4 Ventos |
 
 ## Conteúdo
 
