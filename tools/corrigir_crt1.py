@@ -9,7 +9,9 @@ hardware real e o MiSTer dão-lhes prioridade e o 68000 fica preso à espera da 
 o comando deixa de ser lido. Os emuladores não simulam esta disputa pela ROM.
 
 A correção (tudo no ciclo principal do 68000, que corre na memória dele, sem tocar na ROM):
-1. Desliga as interrupções do 68000 (deixa de saltar para o código na ROM).
+1. Desliga as interrupções do 68000 (deixa de saltar para o código na ROM): no processador, em todas as
+   escritas ao registo de estado e em cada volta do ciclo, e no VDP da Mega Drive (sem interrupção de
+   imagem nem de linha), para nenhuma interrupção disparar mesmo que algum código a ligue.
 2. Lê os dois comandos no ciclo principal, a cada ~3 ms, e escreve-os em COMM8 e COMM10.
    Incrementa COMM14 a cada leitura (sinal de vida, mostrado no título do jogo).
 3. Aceita de imediato qualquer pedido dos SH-2 em COMM0 sem o executar: o jogo não usa nenhum
@@ -32,12 +34,20 @@ original = s
 def aviso(msg): print("AVISO crt1: " + msg)
 
 # 1. interrupções sempre desligadas no 68000
-n = len(re.findall(r"#0x2000,\s*sr", s))
-if n:
-    s = re.sub(r"#0x2000,(\s*)sr", r"#0x2700,\1sr", s)
-    print(f"crt1: interrupções do 68000 desligadas ({n} sítios)")
-else:
-    aviso("não encontrei onde as interrupções são ligadas")
+#    a) no processador: qualquer escrita no registo de estado que baixe a máscara passa a 0x2700
+padrao_sr = re.compile(r"(move(?:\.w)?[ \t]+)#(?:0x|\$)2[0-6]00,([ \t]*%?sr)", re.I)
+n = len(padrao_sr.findall(s))
+s = padrao_sr.sub(r"\1#0x2700,\2", s)
+padrao_andi = re.compile(r"^[ \t]*andi(?:\.w)?[ \t]+#(?:0x|\$)F[0-9A-F]FF,[ \t]*%?sr.*\n", re.I | re.M)
+n2 = len(padrao_andi.findall(s))
+s = padrao_andi.sub("        | (andi ao registo de estado retirado: não ligar interrupções)\n", s)
+print(f"crt1: interrupções do processador desligadas ({n} move, {n2} andi)")
+#    b) no VDP da Mega Drive: registo 1 sem interrupção de imagem (bit 0x20), registo 0 sem a de linha (bit 0x10)
+def vdp1(m): return "#0x81%02X" % (int(m.group(1), 16) & ~0x20)
+def vdp0(m): return "#0x80%02X" % (int(m.group(1), 16) & ~0x10)
+n3 = len(re.findall(r"#0x81([0-9A-Fa-f]{2})\b", s)); s = re.sub(r"#0x81([0-9A-Fa-f]{2})\b", vdp1, s)
+n4 = len(re.findall(r"#0x80([0-9A-Fa-f]{2})\b", s)); s = re.sub(r"#0x80([0-9A-Fa-f]{2})\b", vdp0, s)
+print(f"crt1: interrupções do VDP desligadas ({n3} escritas no registo 1, {n4} no registo 0)")
 
 # 2. leitura dos comandos no ciclo principal
 rotina = """
@@ -81,7 +91,8 @@ ini = s.find("__m68k_start")
 m = re.compile(r"^[ \t]*move\.w[ \t]+0xA15120,[ \t]*d0.*\n", re.M | re.I).search(s, ini if ini >= 0 else 0)
 tem_ciclo = False
 if m:
-    s = s[:m.start()] + "cinzas_ciclo:\n        move.w  #0xA001,0xA1512C    /* marca: início do ciclo principal */\n" + s[m.start():]
+    s = s[:m.start()] + ("cinzas_ciclo:\n        move.w  #0x2700,sr          /* sem interrupções, sempre */\n"
+                         "        move.w  #0xA001,0xA1512C    /* marca: início do ciclo principal */\n") + s[m.start():]
     tem_ciclo = True
     print("crt1: etiqueta cinzas_ciclo no início do ciclo principal")
     print("--- ciclo principal do 68000 depois da correção ---")
