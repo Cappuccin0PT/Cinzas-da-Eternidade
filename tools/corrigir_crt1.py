@@ -27,11 +27,13 @@ Não falha a compilação se não encontrar o código esperado: avisa no registo
 import re
 import sys
 
-caminho = sys.argv[1]
+so_interrupcoes = "--so-interrupcoes" in sys.argv   # usado no m68k_crt0.s: só desliga as interrupções
+caminho = [a for a in sys.argv[1:] if not a.startswith("--")][0]
 s = open(caminho).read()
 original = s
+nome = caminho.rsplit("/", 1)[-1]
 
-def aviso(msg): print("AVISO crt1: " + msg)
+def aviso(msg): print(f"AVISO {nome}: " + msg)
 
 # 1. interrupções sempre desligadas no 68000
 #    a) no processador: qualquer escrita no registo de estado que baixe a máscara passa a 0x2700
@@ -41,13 +43,27 @@ s = padrao_sr.sub(r"\1#0x2700,\2", s)
 padrao_andi = re.compile(r"^[ \t]*andi(?:\.w)?[ \t]+#(?:0x|\$)F[0-9A-F]FF,[ \t]*%?sr.*\n", re.I | re.M)
 n2 = len(padrao_andi.findall(s))
 s = padrao_andi.sub("        | (andi ao registo de estado retirado: não ligar interrupções)\n", s)
-print(f"crt1: interrupções do processador desligadas ({n} move, {n2} andi)")
+print(f"{nome}: interrupções do processador desligadas ({n} move, {n2} andi)")
 #    b) no VDP da Mega Drive: registo 1 sem interrupção de imagem (bit 0x20), registo 0 sem a de linha (bit 0x10)
 def vdp1(m): return "#0x81%02X" % (int(m.group(1), 16) & ~0x20)
 def vdp0(m): return "#0x80%02X" % (int(m.group(1), 16) & ~0x10)
 n3 = len(re.findall(r"#0x81([0-9A-Fa-f]{2})\b", s)); s = re.sub(r"#0x81([0-9A-Fa-f]{2})\b", vdp1, s)
 n4 = len(re.findall(r"#0x80([0-9A-Fa-f]{2})\b", s)); s = re.sub(r"#0x80([0-9A-Fa-f]{2})\b", vdp0, s)
-print(f"crt1: interrupções do VDP desligadas ({n3} escritas no registo 1, {n4} no registo 0)")
+def tabela(m):   # tabelas de dados com valores de registos do VDP (dc.w 0x8174, ...)
+    linha = m.group(0)
+    linha = re.sub(r"\b0x81([0-9A-Fa-f]{2})\b", lambda k: "0x81%02X" % (int(k.group(1), 16) & ~0x20), linha)
+    return re.sub(r"\b0x80([0-9A-Fa-f]{2})\b", lambda k: "0x80%02X" % (int(k.group(1), 16) & ~0x10), linha)
+n5 = len(re.findall(r"^[ \t]*dc\.w[^\n]*\b0x8[01][0-9A-Fa-f]{2}\b[^\n]*$", s, re.M | re.I))
+s = re.sub(r"^[ \t]*dc\.w[^\n]*$", tabela, s, flags=re.M | re.I)
+n3 += n5
+print(f"{nome}: interrupções do VDP desligadas ({n3} escritas no registo 1, {n4} no registo 0)")
+for linha in s.splitlines():   # outras formas de ligar interrupções, para conferir no registo
+    if re.search(r"\bsr\b|0x81|0x80|vblank|vert_blank|hint|vint", linha, re.I) and not linha.strip().startswith(("*", "|")):
+        print(f"   {nome}: " + linha.strip())
+if so_interrupcoes:
+    if s != original:
+        open(caminho, "w").write(s)
+    sys.exit(0)
 
 # 2. leitura dos comandos no ciclo principal
 rotina = """

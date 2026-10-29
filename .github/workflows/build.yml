@@ -77,6 +77,7 @@ jobs:
           # o nosso slave.c substitui o do exemplo: o SH-2 secundário toca a música
           cp src/main.c src/slave.c src/sincronia.h src/mundo.h src/assets.h src/logo.h src/musica.h src/sfx.h build/src/
           # corrige o arranque do 68000 do exemplo para o comando funcionar no hardware real e no MiSTer
+          python3 tools/corrigir_crt1.py --so-interrupcoes build/m68k_crt0.s
           python3 tools/corrigir_crt1.py build/m68k_crt1.s
 
       - name: Compilar a ROM
@@ -93,4 +94,12 @@ jobs:
         with:
           name: cinzas-da-eternidade-32x
           path: cinzas-da-eternidade.32x
+
+      - name: Guardar o código do 68000 corrigido (diagnóstico)
+        uses: actions/upload-artifact@v4
+        with:
+          name: codigo-68000
+          path: |
+            build/m68k_crt0.s
+            build/m68k_crt1.s
           if-no-files-found: error
