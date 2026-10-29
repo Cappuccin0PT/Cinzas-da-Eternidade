@@ -285,9 +285,11 @@ static uint16_t padRaw[2];            /* valores brutos das duas portas (diagnó
    tools/corrigir_crt1.py) e grava-o em COMM8 (porta 1) e COMM10 (porta 2). Em COMM14 incrementa um
    sinal de vida a cada leitura (diagnóstico no título). */
 #ifndef PREVIEW
+#define COMM12_SH (*(volatile uint16_t *)0x2000402C)
 #define COMM14_SH (*(volatile uint16_t *)0x2000402E)
 #else
-static uint16_t pv_c14;
+static uint16_t pv_c12, pv_c14;
+#define COMM12_SH pv_c12
 #define COMM14_SH pv_c14
 #endif
 static uint16_t ler_comando(void) {
@@ -1366,9 +1368,11 @@ static void draw_title(void) {
         for (int i = 0; i < 4; i++) menu_item(OP[i], 128 + i * 15, i == menuSel, 96);
         text("CRIADO POR CAPPUCCIN0PT", 8, 210, G2, 1);
         {   /* diagnóstico do comando: valores brutos das portas 1 e 2 em hexadecimal */
-            static const char HX[] = "0123456789ABCDEF"; char d[32] = "P1 0000  P2 0000  68K 0000";
-            uint16_t vb = COMM14_SH;   /* sinal de vida do 68000: sobe a cada leitura do comando */
-            for (int k = 0; k < 4; k++) { d[3 + k] = HX[(padRaw[0] >> (12 - 4 * k)) & 15]; d[12 + k] = HX[(padRaw[1] >> (12 - 4 * k)) & 15]; d[22 + k] = HX[(vb >> (12 - 4 * k)) & 15]; }
+            static const char HX[] = "0123456789ABCDEF"; char d[40] = "P1 0000 P2 0000 68K 0000 PT 0000";
+            uint16_t vb = COMM14_SH, pt = COMM12_SH;   /* sinal de vida do 68000 e marca de posição */
+            for (int k = 0; k < 4; k++) { int sh = 12 - 4 * k;
+                d[3 + k] = HX[(padRaw[0] >> sh) & 15]; d[11 + k] = HX[(padRaw[1] >> sh) & 15];
+                d[20 + k] = HX[(vb >> sh) & 15]; d[28 + k] = HX[(pt >> sh) & 15]; }
             text(d, 4, 4, G1, 1);
         }
         for (int dy = -6; dy <= 6; dy++) for (int dx = -6; dx <= 6; dx++) if (dx * dx + dy * dy <= 36) pset(244 + dx, 213 + dy, (dx * dx + dy * dy > 25) ? M2 : M1);

@@ -12,8 +12,12 @@ A correção (tudo no ciclo principal do 68000, que corre na memória dele, sem 
 1. Desliga as interrupções do 68000 (deixa de saltar para o código na ROM).
 2. Lê os dois comandos no ciclo principal, a cada ~3 ms, e escreve-os em COMM8 e COMM10.
    Incrementa COMM14 a cada leitura (sinal de vida, mostrado no título do jogo).
-3. Retira a procura de rato no arranque (tem esperas sem limite de tempo).
-4. Põe mais esperas em get_input entre mudar a linha TH do comando e ler o valor.
+3. Aceita de imediato qualquer pedido dos SH-2 em COMM0 sem o executar: o jogo não usa nenhum
+   (SRAM, rato, ecrã da Mega Drive) e algumas dessas rotinas têm esperas sem fim.
+4. Retira a procura de rato no arranque (tem esperas sem limite de tempo).
+5. Põe mais esperas em get_input entre mudar a linha TH do comando e ler o valor.
+Diagnóstico: COMM12 recebe uma marca de posição (A001 início do ciclo, A002 a A005 dentro da leitura,
+A006 pedido recebido), mostrada no título do jogo como PT.
 
 Uso: python3 tools/corrigir_crt1.py build/m68k_crt1.s
 Não falha a compilação se não encontrar o código esperado: avisa no registo.
@@ -40,18 +44,22 @@ rotina = """
 | Cinzas da Eternidade: lê os dois comandos no ciclo principal (sem interrupções, sem tocar na ROM)
 ler_comandos:
         movem.l d0-d2/a0,-(sp)
+        move.w  #0xA002,0xA1512C    /* marca: a ler a porta 1 */
         lea     0xA10003,a0
         move.w  #0xF000,d2
         bsr     get_pad
         move.w  d2,0xA15128         /* COMM8: porta 1 */
+        move.w  #0xA003,0xA1512C    /* marca: a ler a porta 2 */
         lea     0xA10005,a0
         move.w  #0xF000,d2
         bsr     get_pad
         move.w  d2,0xA1512A         /* COMM10: porta 2 */
         addq.w  #1,0xA1512E         /* COMM14: sinal de vida */
+        move.w  #0xA004,0xA1512C    /* marca: a esperar */
         move.w  #2400,d1
 1:
         dbra    d1,1b               /* ~3 ms entre leituras (comandos de 6 botões) */
+        move.w  #0xA005,0xA1512C    /* marca: leitura acabada */
         movem.l (sp)+,d0-d2/a0
         rts
 
@@ -67,6 +75,17 @@ else:
         print("crt1: ciclo principal passa a ler os comandos (no início de main_loop)")
     else:
         aviso("não encontrei o ciclo principal (main_loop)")
+m = re.search(r"^main_loop:[ \t]*\n", s, re.M)
+if m:
+    s = s[:m.end()] + "        move.w  #0xA001,0xA1512C    /* marca: início do ciclo principal */\n" + s[m.end():]
+m = re.search(r"^handle_req:[ \t]*\n", s, re.M)
+if m:
+    s = s[:m.end()] + ("        move.w  #0xA006,0xA1512C    /* marca: pedido recebido */\n"
+                       "        move.w  #0,0xA15120         /* aceita o pedido sem o executar (o jogo não usa nenhum) */\n"
+                       "        bra     main_loop\n") + s[m.end():]
+    print("crt1: pedidos em COMM0 aceites sem os executar")
+else:
+    aviso("não encontrei handle_req")
 m = re.search(r"^__m68k_end:", s, re.M)
 if m:
     s = s[:m.start()] + rotina + s[m.start():]
