@@ -116,13 +116,20 @@ if m:
 else:
     aviso("não encontrei __m68k_end")
 
-# 3. procura de rato no arranque
-m = re.search(r"\|\s*look for mouse.*?\n(?=[ \t]*move\.l[ \t]+#0,[ \t]*0xA1512C)", s, re.S | re.I)
-if m:
-    s = s[:m.start()] + "| (procura de rato retirada: tem esperas sem limite de tempo)\n" + s[m.end():]
-    print("crt1: procura de rato retirada")
+# 3. procura de rato no arranque: antes do ciclo principal, cada chamada a get_mky passa a responder
+#    logo "não há rato" (-1), sem as esperas sem limite de tempo da rotina original
+fim = s.find("cinzas_ciclo:")
+if fim < 0: fim = len(s)
+chamada = re.compile(r"^([ \t]*)(?:bsr|jsr)(?:\.[bswl])?[ \t]+get_mky\b[^\n]*$", re.M | re.I)
+n = len(chamada.findall(s[:fim]))
+s = chamada.sub(r"\1moveq   #-1,d0              /* sem procura de rato: esperas sem limite */", s[:fim]) + s[fim:]
+if n:
+    print(f"crt1: procura de rato retirada ({n} chamadas)")
 else:
-    aviso("não encontrei a procura de rato")
+    aviso("não encontrei chamadas a get_mky antes do ciclo principal")
+for linha in s.splitlines():
+    if re.search(r"mky|mouse", linha, re.I):
+        print("   rato: " + linha.strip())
 
 # 4. get_input com esperas maiores
 espera = "\n".join(["        nop"] * 8)
