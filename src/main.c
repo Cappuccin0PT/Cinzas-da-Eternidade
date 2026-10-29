@@ -281,9 +281,9 @@ static uint16_t padNow, padPressed;   /* comando: botões carregados e acabados 
 static uint16_t padRaw[2];            /* valores brutos das duas portas (diagnóstico no título) */
 /* Lê as duas portas e junta-as: no MiSTer o comando pode estar na porta 2. Os 4 bits de cima indicam o
    tipo de comando (0xF000 = sem comando) e não são botões, por isso só os 12 de baixo contam. */
-/* Comando: o 68000 lê-o na interrupção de fim de imagem (m68k_crt1.s do exemplo, corrigido pelo
-   tools/corrigir_crt1.py) e grava-o em COMM8 (porta 1) e COMM10 (porta 2). Em COMM12/COMM14 guarda um
-   contador de imagens: se sobe, o 68000 está vivo (diagnóstico no título). */
+/* Comando: o 68000 lê-o no seu ciclo principal (m68k_crt1.s do exemplo, corrigido pelo
+   tools/corrigir_crt1.py) e grava-o em COMM8 (porta 1) e COMM10 (porta 2). Em COMM14 incrementa um
+   sinal de vida a cada leitura (diagnóstico no título). */
 #ifndef PREVIEW
 #define COMM14_SH (*(volatile uint16_t *)0x2000402E)
 #else
@@ -1366,9 +1366,9 @@ static void draw_title(void) {
         for (int i = 0; i < 4; i++) menu_item(OP[i], 128 + i * 15, i == menuSel, 96);
         text("CRIADO POR CAPPUCCIN0PT", 8, 210, G2, 1);
         {   /* diagnóstico do comando: valores brutos das portas 1 e 2 em hexadecimal */
-            static const char HX[] = "0123456789ABCDEF"; char d[32] = "P1 0000  P2 0000  VB 0000";
-            uint16_t vb = COMM14_SH;   /* contador de imagens do 68000 */
-            for (int k = 0; k < 4; k++) { d[3 + k] = HX[(padRaw[0] >> (12 - 4 * k)) & 15]; d[12 + k] = HX[(padRaw[1] >> (12 - 4 * k)) & 15]; d[21 + k] = HX[(vb >> (12 - 4 * k)) & 15]; }
+            static const char HX[] = "0123456789ABCDEF"; char d[32] = "P1 0000  P2 0000  68K 0000";
+            uint16_t vb = COMM14_SH;   /* sinal de vida do 68000: sobe a cada leitura do comando */
+            for (int k = 0; k < 4; k++) { d[3 + k] = HX[(padRaw[0] >> (12 - 4 * k)) & 15]; d[12 + k] = HX[(padRaw[1] >> (12 - 4 * k)) & 15]; d[22 + k] = HX[(vb >> (12 - 4 * k)) & 15]; }
             text(d, 4, 4, G1, 1);
         }
         for (int dy = -6; dy <= 6; dy++) for (int dx = -6; dx <= 6; dx++) if (dx * dx + dy * dy <= 36) pset(244 + dx, 213 + dy, (dx * dx + dy * dy > 25) ? M2 : M1);
