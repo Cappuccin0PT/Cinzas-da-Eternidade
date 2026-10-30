@@ -1462,22 +1462,28 @@ static void plat_gerar(int seed0) {
     #define INIMIGO(t, ix, iy) do { if (ni < MAXPI) { pinim[ni].on = 1; pinim[ni].tipo = (uint8_t)(t); pinim[ni].x = (ix) << FP; pinim[ni].y = (iy) << FP; \
         pinim[ni].base = (int16_t)(iy); pinim[ni].dir = -1; pinim[ni].hp = (int16_t)((t) ? 12 : 36); pinim[ni].anim = (uint8_t)rndi(32); pinim[ni].flash = 0; ni++; } } while (0)
     while (x < 8) { COLUNA(x, h); x++; }   /* início plano */
+    int buraco = 0;   /* o trecho anterior foi um buraco: o seguinte tem de ser chão firme e sem subida */
     while (x < PW - 14) {
         int tipo = rndi(100), len = 4 + rndi(5);
+        if (buraco && (tipo < 30 || tipo >= 72)) tipo = 30 + rndi(42);   /* depois de um buraco: degrau ou pilar */
         if (tipo < 30) {   /* buraco, com ponte se for largo */
             int gap = 2 + rndi(3);
             for (int k = 0; k < gap && x < PW - 14; k++, x++) {
                 if (gap >= 4 && k > 0 && k < gap - 1) plv[h - 2][x] = PT_PONTE;
                 MOEDA(x * 16 + 8, (h - (gap >= 4 ? 3 : 2)) * 16 + 4 - (k == gap / 2 ? 8 : 0)); }
+            buraco = 1; continue;
         } else if (tipo < 55) {   /* degrau */
-            int nh = rndi(2) ? h - 1 : h + 1 + rndi(2); if (nh < 7) nh = 7; if (nh > 12) nh = 12; h = nh;   /* sobe no máximo 1 tile, desce até 2 */
+            int nh = (rndi(2) && !buraco) ? h - 1 : h + 1 + rndi(2); if (nh < 7) nh = 7; if (nh > 12) nh = 12; h = nh;   /* sobe no máximo 1 tile (nunca logo a seguir a um buraco), desce até 2 */
             for (int k = 0; k < len && x < PW - 14; k++, x++) COLUNA(x, h);
             if (rndi(100) < 60) INIMIGO(0, (x - len / 2) * 16, h * 16);
+            buraco = 0;
         } else if (tipo < 72) {   /* pilar a saltar por cima */
-            for (int k = 0; k < len && x < PW - 14; k++, x++) { COLUNA(x, (k == len / 2) ? h - 2 : h); }
+            for (int k = 0; k < len && x < PW - 14; k++, x++) { COLUNA(x, (k == 1) ? h - 2 : h); }   /* pilar logo no início: depois dele há sempre 2 ou mais tiles de chão */
+            buraco = 0;
         } else {   /* chão com plataforma no ar, moedas e um morcego */
             for (int k = 0; k < len && x < PW - 14; k++, x++) { COLUNA(x, h); if (k > 0 && k < len - 1 && h - 4 > 2) { plv[h - 4][x] = PT_PONTE; MOEDA(x * 16 + 8, (h - 5) * 16 + 4); } }
             INIMIGO(1, (x - 2) * 16, (h - 6) * 16);
+            buraco = 0;
         }
     }
     h = 11; while (x < PW) { COLUNA(x, h); x++; }   /* fim plano: baú e portal */
@@ -1486,9 +1492,27 @@ static void plat_gerar(int seed0) {
     #undef MOEDA
     #undef INIMIGO
 }
+/* Verificação de cada passagem gerada: para cada vazio entre dois chãos, o salto do herói (física do jogo:
+   sobe 5,7 px por passo, gravidade 0,28, anda 1,56 px por passo) tem de chegar ao outro lado com margem.
+   ALCANCE[k] = distância horizontal máxima de um salto que acaba k-10 tiles acima (pré-calculada). */
+static const int16_t ALCANCE[13] = {93,90,88,85,83,80,77,74,71,67,63,58,52};
+static int plat_verifica(void) {   /* 0 = passável; senão, a coluna do primeiro trecho impossível */
+    int ult = -1, ultH = 0;
+    for (int x = 0; x < PW; x++) {
+        int h = 99; for (int y = 0; y < PH; y++) if (plv[y][x] == PT_TOPO) { h = y; break; }   /* chão; a ponte só conta sobre um buraco */
+        if (h == 99) for (int y = 0; y < PH; y++) if (plv[y][x] == PT_PONTE) { h = y; break; }
+        if (h == 99) continue;
+        if (ult >= 0) { int vazio = (x - ult - 1) * 16, sobe = (ultH - h) * 16;
+            if (sobe > 40) return x;
+            int kk = sobe / 16 + 10; if (kk < 0) kk = 0;
+            if (vazio > 0 && (kk > 12 || vazio > ALCANCE[kk] - 8)) return x; }
+        ult = x; ultH = h;
+    }
+    return 0;
+}
 static void plat_start(int next) {
     platNext = next; platAtivo = 1; state = ST_PLAT; platT = 0;
-    plat_gerar(next);
+    for (int tent = 0; tent < 20; tent++) { plat_gerar(next); if (!plat_verifica()) break; }   /* gera de novo se algum trecho for impossível */
     H.x = (3 * 16) << FP; H.y = (11 * 16) << FP; pvx = pvy = 0; pchao = 1; pagach = 0; patk = 0; pcd = 0; pface = 1;
     psafeX = H.x; psafeY = H.y; H.inv = 60;
     for (int i = 0; i < MAXFX; i++) fx[i].on = 0;
@@ -2104,6 +2128,11 @@ void pv_cheat(void) { level = 14; xp = xpNext - 1; lvl[U_LAMINA] = 6; lvl[U_BRAS
 void pv_magias(int n) { lvl[U_FOGO] = lvl[U_MISSEIS] = lvl[U_BURACO] = lvl[U_RAIO] = (uint8_t)n; H.maxhp = H.hp = 999; }
 void pv_heroi(int h) { heroi = h; }
 void pv_plat(void) { plat_start(1); }
+void pv_gera_plat(void) { plat_gerar(0); }
+int pv_verifica_plat(void) { return plat_verifica(); }
+int pv_tile(int x, int y) { return plv[y][x]; }
+int pv_heroy(void) { return H.y >> FP; }
+int pv_chao(void) { return pchao; }
 void pv_plat_fim(void) { if (platAtivo && state == ST_PLAT) plat_end(); }
 int pv_platx(void) { return platAtivo ? (H.x >> FP) : -1; }
 int pv_saltar(void) { int x = H.x >> FP, y = H.y >> FP; return plat_solido(x + 14, y - 8) || plat_solido(x + 14, y - 20) || (!plat_solido(x + 12, y + 2) && !plat_ponte(x + 12, y + 2)); }

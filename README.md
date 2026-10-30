@@ -84,7 +84,7 @@ Depois de entrar no portal de um boss, antes do mapa seguinte, há uma passagem 
 | B | Golpear em frente (agachado: golpe baixo) |
 | START | Pausa |
 
-A passagem é gerada de novo a cada vez (degraus, buracos, pontes de madeira que se atravessam por baixo, pilares, plataformas no ar), com esqueletos que patrulham, morcegos que voam em onda e moedas pelo caminho. Cair num buraco tira 15 de vida e devolve ao último chão seguro. No fim há um baú dourado (escolhe 1 de 3 itens) e o portal para o mapa seguinte. O gerador garante que todos os trechos se passam: os degraus sobem no máximo um tile e os buracos de quatro tiles têm sempre ponte.
+A passagem é gerada de novo a cada vez (degraus, buracos, pontes de madeira que se atravessam por baixo, pilares, plataformas no ar), com esqueletos que patrulham, morcegos que voam em onda e moedas pelo caminho. Cair num buraco tira 15 de vida e devolve ao último chão seguro. No fim há um baú dourado (escolhe 1 de 3 itens) e o portal para o mapa seguinte. O gerador garante que todos os trechos se passam: nunca há dois buracos seguidos, os buracos sem ponte têm no máximo 3 tiles, os de 4 têm sempre ponte, os degraus sobem no máximo um tile (e nunca logo a seguir a um buraco) e os pilares ficam no início do trecho, com chão a seguir. Depois de gerar, o jogo verifica cada vazio com a física do salto (tabela `ALCANCE`) e gera outra passagem se algum trecho for impossível.
 
 ## Economia: ouro, baús, itens e loja
 
