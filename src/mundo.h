@@ -82,7 +82,12 @@ enum {
     SPR_FRASCO = SPR_CRUZ + 2,      /* 1: frasco de água benta */
     SPR_ARMADILHA = SPR_FRASCO + 1, /* 2: aberta, fechada */
     SPR_FALCAO = SPR_ARMADILHA + 2, /* 2: asas em cima, asas em baixo */
-    SPR_COUNT = SPR_FALCAO + 2
+    SPR_SALGUEIRO = SPR_FALCAO + 2, /* pântano: salgueiro morto (48x64) — adereços têm de ficar abaixo de 256 */
+    SPR_JUNCOS,                     /* pântano: juncos (16x24) */
+    SPR_COGUMELOS,                  /* pântano: cogumelos que brilham (16x16) */
+    SPR_BOSS2,                      /* 3: Olho de Jade — a flutuar 0, a flutuar 1, aviso */
+    SPR_ORBE = SPR_BOSS2 + 3,       /* 2: orbe de jade disparado pelo segundo boss */
+    SPR_COUNT = SPR_ORBE + 2
 };
 typedef struct { uint16_t w, h, ax, ay; uint32_t off; } SprDesc;   /* w já inclui folga par */
 typedef struct { uint16_t x, y; uint8_t spr, flags; } Prop;        /* x,y = pés, em px do mundo */
@@ -92,7 +97,7 @@ typedef struct { uint16_t x, y; uint8_t spr, flags; } Prop;        /* x,y = pés
 #define PF_SH_L    8
 #define PF_FIRE   16   /* casa em chamas: chamas no telhado e brasas */
 #define PF_RUINED 32   /* casa desabada: uma chama baixa */
-#define NMAPAS 2
+#define NMAPAS 3
 
 /* Fonte 5x7 em células de 6x10 (2 linhas para acentos, 1 para cedilha) */
 #define NGLYPH 76      /* ASCII 32..95 + 12 letras acentuadas */
@@ -109,8 +114,10 @@ typedef struct { uint16_t x, y; uint8_t spr, flags; } Prop;        /* x,y = pés
 #define SFX_ID_PORTA    9
 #define SFX_ID_IMPACTO  10
 #define SFX_ID_CONFIRMAR 11
-#define FAIXA_INTRO 2   /* música da cutscene de abertura */
-#define FAIXA_NENHUMA 3 /* música desligada */
+#define FAIXA_INTRO 2   /* música da intro */
+#define FAIXA_PANTANO 3 /* música do pântano (ciclo perfeito) */
+#define FAIXA_NENHUMA 4 /* música desligada */
+#define NFAIXAS 4
 
 #define TSKY_H 150
 enum { AREN_DEITADO, AREN_JOELHOS, AREN_PE, AREN_CHAMAS, AREN_CHAMAS2, AREN_CORRE, AREN_ATAQUE };   /* céu do título com nuvens (desliza na horizontal) */

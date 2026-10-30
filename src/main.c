@@ -113,6 +113,7 @@ typedef struct { const uint8_t *t, *a; const Prop *props; int nprops; const char
 static const MapaDef MAPAS[NMAPAS] = {
     {MAP0_T, MAP0_A, PROPS0, NPROPS0, "PÁTIO DA FORTALEZA", "AS RUÍNAS DE CINZA", 48 * 16 + 8, 50 * 16 + 8},
     {MAP1_T, MAP1_A, PROPS1, NPROPS1, "ALDEIA DE HINOSATO", "A ALDEIA EM CHAMAS", 48 * 16 + 8, 86 * 16 + 8},
+    {MAP2_T, MAP2_A, PROPS2, NPROPS2, "PÂNTANO DAS BRUMAS", "ONDE AS ALMAS SE AFOGAM", 48 * 16 + 8, 86 * 16 + 8},
 };
 static int mapa;
 static int musicaOn = 1;   /* opção do menu: música ligada ou desligada */
@@ -126,7 +127,8 @@ static void load_map(int m) {
     mapa = m;
     for (int i = 0; i < MAP_W * MAP_H; i++) { mapRam[i] = MAPAS[m].t[i]; attrRam[i] = MAPAS[m].a[i]; }
     PROPSP = MAPAS[m].props; NPROPSP = MAPAS[m].nprops;
-    if (!naCutscene) SOM_LER(som_musica) = musicaOn ? (uint32_t)m : FAIXA_NENHUMA;   /* música do mapa */
+    { static const uint8_t MAPA_FAIXA[NMAPAS] = {0, 1, FAIXA_PANTANO};
+      if (!naCutscene) SOM_LER(som_musica) = musicaOn ? MAPA_FAIXA[m] : FAIXA_NENHUMA; }   /* música do mapa */
 }
 static int attr_at(int px, int py) {   /* px,py em píxeis do mundo */
     if (px < 0 || py < 0 || px >= MAP_W * TILE || py >= MAP_H * TILE) return A_SOLID;
@@ -252,7 +254,7 @@ enum { HERO_NINJA, HERO_MAGO, HERO_CACADOR, HERO_PADRE, NHEROIS };
 static int heroi = HERO_NINJA;
 static const int HERO_SPR[NHEROIS] = {SPR_HERO, SPR_MAGO, SPR_CACADOR, SPR_PADRE};
 static const int HERO_AVATAR[NHEROIS] = {SPR_AVATAR, SPR_AVATAR + 1, SPR_AVATAR2, SPR_AVATAR2 + 1};
-static const int HERO_HP[NHEROIS] = {100, 85, 90, 110};
+static const int HERO_HP[NHEROIS] = {110, 85, 100, 120};
 enum { U_LAMINA, U_BRASAS, U_FAULHA, U_FOGO, U_MISSEIS, U_BURACO, U_RAIO, U_BESTA, U_ARMADILHA, U_FALCAO, U_AURA, U_AGUA, U_CRUZ,
        U_CORACAO, U_BOTAS, U_IMAN, U_FURIA, NUP };
 static const char *UP_NAME[NUP] = {"LÂMINA", "BRASAS ORBITAIS", "FAÚLHA", "BOLA DE FOGO", "MÍSSEIS ARCANOS", "BURACO NEGRO", "RELÂMPAGO EM CADEIA",
@@ -265,9 +267,12 @@ static const char *UP_NEW[NUP]  = {"CORTE AUTOMÁTICO À FRENTE", "BRASAS RODAM 
                                    "", "", "", ""};
 static const char *UP_DESC[NUP] = {"MAIS DANO E MAIS ALCANCE", "MAIS UMA BRASA A RODAR", "MAIS UM PROJÉTIL", "", "", "", "", "", "", "", "", "", "",
                                    "+20 DE VIDA MÁXIMA E CURA", "+10% DE VELOCIDADE", "RECOLHE CRISTAIS DE MAIS LONGE", "-8% DE TEMPO DE RECARGA"};
-static const uint8_t UP_MAX[NUP] = {6, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 5, 5, 4, 4};
-#define IS_MAGIA(u) ((u) >= U_FOGO && (u) <= U_CRUZ)   /* armas com níveis descritos e evolução */
-static const char *MAGIA_NV[10][4] = {   /* descrição do nível seguinte (2 a 5) */
+static const uint8_t UP_MAX[NUP] = {6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 5, 5, 4, 4};
+#define IS_MAGIA(u) ((u) <= U_CRUZ)   /* todas as armas: níveis descritos e evolução no nível 6 */
+static const char *MAGIA_NV[13][4] = {   /* descrição do nível seguinte (2 a 5) */
+    {"MAIS DANO E ALCANCE", "CORTA PARA OS DOIS LADOS", "MAIS RÁPIDA", "MAIS DANO E ALCANCE"},
+    {"+1 BRASA", "+1 BRASA", "+1 BRASA E +DANO", "+1 BRASA"},
+    {"+1 PROJÉTIL", "+1 PROJÉTIL", "+1 PROJÉTIL E +DANO", "+1 PROJÉTIL"},
     {"EXPLOSÃO MAIOR", "+1 BOLA DE FOGO", "QUEIMA OS INIMIGOS", "+DANO E +1 BOLA DE FOGO"},
     {"+1 MÍSSIL", "MÍSSEIS MAIS RÁPIDOS", "RICOCHETEIAM 1 VEZ", "+2 MÍSSEIS E +1 RICOCHETE"},
     {"RAIO MAIOR", "ATRAI COM MAIS FORÇA", "DURA MAIS TEMPO", "+RAIO E +DANO"},
@@ -278,9 +283,9 @@ static const char *MAGIA_NV[10][4] = {   /* descrição do nível seguinte (2 a 
     {"AURA MAIOR", "MAIS DANO", "EMPURRA OS INIMIGOS", "AURA MAIOR E +DANO"},
     {"POÇA MAIOR", "+1 FRASCO", "DURA MAIS TEMPO", "+1 FRASCO E +DANO"},
     {"MAIS DANO", "+1 CRUZ", "MAIS RÁPIDA", "+1 CRUZ E +DANO"}};
-static const char *EVO_NAME[10] = {"CHUVA DE METEOROS", "BARRAGEM ARCANA", "SINGULARIDADE", "DEUS DO TROVÃO",
+static const char *EVO_NAME[13] = {"LÂMINA DE CINZA", "ANEL DE FOGO", "TEMPESTADE DE FAÚLHAS", "CHUVA DE METEOROS", "BARRAGEM ARCANA", "SINGULARIDADE", "DEUS DO TROVÃO",
                                    "CHUVA DE SETAS", "CAMPO MINADO", "BANDO DE FALCÕES", "SANTUÁRIO", "INUNDAÇÃO SAGRADA", "CRUZES DOS 4 VENTOS"};
-static const char *EVO_DESC[10] = {"METEOROS CAEM PELO MAPA", "DEZENAS DE MÍSSEIS SEGUIDOS", "ABSORVE E EXPLODE NO FIM", "RAIOS CAEM À TUA VOLTA",
+static const char *EVO_DESC[13] = {"O CORTE LANÇA ONDAS DE FOGO", "OITO BRASAS QUE QUEIMAM", "FAÚLHAS EM TODAS AS DIREÇÕES", "METEOROS CAEM PELO MAPA", "DEZENAS DE MÍSSEIS SEGUIDOS", "ABSORVE E EXPLODE NO FIM", "RAIOS CAEM À TUA VOLTA",
                                    "SETAS CAEM SOBRE OS INIMIGOS", "AS ARMADILHAS EXPLODEM", "TRÊS FALCÕES DE UMA VEZ", "AURA MAIOR QUE TE CURA",
                                    "POÇAS ENORMES QUE ATRASAM", "CRUZES EM TODAS AS DIREÇÕES"};
 static int upgrade_do_heroi(int u) {   /* esta melhoria está disponível para o personagem escolhido? */
@@ -324,6 +329,9 @@ static uint16_t ler_comando(void) {
 }
 
 #define MAXE 96
+#define ENEMY_CAP 52   /* inimigos ao mesmo tempo: acima disto o jogo abranda; a dificuldade sobe com esqueletos em vez de mais inimigos */
+static int nVivos;     /* inimigos vivos (contados em update_enemies) */
+static int faiscas;    /* faíscas novas neste passo (no máximo 4) */
 typedef struct { int32_t x, y, kx, ky; int16_t hp; uint8_t type, on, flash, cdOrb, face, anim, burn, burnT, st, stT, cdHit, lento; int16_t next; } Enemy;
 /* tipo 0 rastejante (fere por contacto), 1 esqueleto (ataca com a lâmina: st 1 aviso, 2 golpe, 3 recupera), 2 boss */
 static Enemy en[MAXE];
@@ -331,6 +339,13 @@ static const int E_SPD[3] = {220, 125, 150}, E_HP[3] = {8, 32, 1800}, E_DMG[3] =
 /* Boss do primeiro mapa: Gorgomusgo. Aparece no nível 15; ao morrer abre um portal no centro do mapa. */
 #define BOSS_NIVEL 15
 static const char *BOSS_NOME = "GORGOMUSGO", *BOSS_SUB = "O TRONCO QUE DEVORA RUNAS";
+static int bossTipo;   /* 0 Gorgomusgo (fortaleza), 1 Olho de Jade (aldeia) */
+static const int BOSS_HP[2] = {1800, 2600};
+#define MAXEP 40
+static struct { int32_t x, y, vx, vy; int16_t life; uint8_t on; } ep[MAXEP];   /* orbes disparados pelo Olho de Jade */
+static void orbe(int32_t x, int32_t y, int vx, int vy) {
+    for (int i = 0; i < MAXEP; i++) if (!ep[i].on) { ep[i].x = x; ep[i].y = y; ep[i].vx = vx; ep[i].vy = vy; ep[i].life = 200; ep[i].on = 1; return; }
+}
 static int bossIdx = -1, bossState, bossT, bossCycles, bossVx, bossVy, bossDone, bossMaxHp;
 static int portalOn, portalX, portalY, introT, transT, mapNameT, bannerT, mapSteps;
 static const char *bannerTxt = "";
@@ -390,7 +405,8 @@ static void new_game(void) {
     spawnT = 60; hordeT = 60 * 60; lightT = 60 * 50;
     load_map(0);
     H.x = MAPAS[0].sx << FP; H.y = MAPAS[0].sy << FP;
-    bossIdx = -1; bossDone = 0; bossCycles = 0; portalOn = 0; mapNameT = 240; bannerT = 0; mapSteps = 0;
+    bossIdx = -1; bossDone = 0; bossCycles = 0; bossTipo = 0; portalOn = 0; mapNameT = 240; bannerT = 0; mapSteps = 0;
+    for (int i = 0; i < MAXEP; i++) ep[i].on = 0;
 }
 
 /* ----- Inimigos ----- */
@@ -403,16 +419,25 @@ static int free_enemy(void) {
 }
 static void spawn_at(int type, int px, int py) {
     if (attr_at(px, py) & A_SOLID) return;
+    if (type != 2 && nVivos >= ENEMY_CAP + 8) return;   /* teto absoluto (hordas e invocações dos bosses incluídas) */
     int i = free_enemy(); Enemy *e = &en[i];
+    if (!e->on) nVivos++;
     int t = steps / 60;
     e->x = px << FP; e->y = py << FP; e->kx = e->ky = 0; e->type = (uint8_t)type; e->on = 1; e->flash = 0; e->cdOrb = 0; e->anim = (uint8_t)rndi(16); e->burn = 0; e->burnT = 0; e->st = 0; e->stT = 0; e->cdHit = 0; e->lento = 0;
     e->hp = (int16_t)(type == 2 ? E_HP[2] : E_HP[type] * (100 + t / 2) / 100);
+}
+static void reforca(int type, int px, int py) {   /* no limite: substitui o rastejante mais afastado por um esqueleto */
+    int far = -1, fd = -1;
+    for (int i = 0; i < MAXE; i++) { if (!en[i].on || en[i].type != 0) continue;
+        int d = dist_approx((en[i].x - H.x) >> FP, (en[i].y - H.y) >> FP); if (d > fd) { fd = d; far = i; } }
+    if (far < 0 || fd < 150) return;   /* nunca troca um inimigo que esteja à vista perto do herói */
+    (void)type; en[far].on = 0; spawn_at(1, px, py);
 }
 static void spawn_ring(int type, int rmin, int rmax) {
     for (int tries = 0; tries < 6; tries++) {
         int a = rndi(256), r = rmin + rndi(rmax - rmin + 1);
         int px = (H.x >> FP) + (SINT[(a + 64) & 255] * r >> 8), py = (H.y >> FP) + (SINT[a] * r >> 8);
-        if (!(attr_at(px, py) & A_SOLID)) { spawn_at(type, px, py); return; }
+        if (!(attr_at(px, py) & A_SOLID)) { if (nVivos >= ENEMY_CAP) reforca(type, px, py); else spawn_at(type, px, py); return; }
     }
 }
 static void kill_enemy(Enemy *e) {
@@ -436,7 +461,7 @@ static void kill_enemy(Enemy *e) {
 static void hurt_enemy(Enemy *e, int dmg, int kx, int ky) {
     e->hp = (int16_t)(e->hp - dmg); e->flash = e->type == 2 ? 2 : 6;   /* boss: flash curto para não piscar sem parar */
     int k = e->type == 2 ? 0 : e->type ? 1 : 3; e->kx = kx * k; e->ky = ky * k;
-    add_fx(SPR_SPARK, 3, 4, e->x >> FP, (e->y >> FP) - (e->type == 2 ? 28 : e->type ? 12 : 6), 0);
+    if (faiscas < 4) { faiscas++; add_fx(SPR_SPARK, 3, 4, e->x >> FP, (e->y >> FP) - (e->type == 2 ? 28 : e->type ? 12 : 6), 0); }
     if (e->hp <= 0) kill_enemy(e);
 }
 /* Boss: persegue, avisa (olhos vermelhos), investe, recupera; a cada duas investidas chama rastejantes.
@@ -447,7 +472,10 @@ static void boss_clamp(Enemy *e) {
     if (e->y < (6 * TILE) << FP) e->y = (6 * TILE) << FP;
     if (e->y > ((MAP_H - 4) * TILE) << FP) e->y = ((MAP_H - 4) * TILE) << FP;
 }
+static void boss2_move(Enemy *e, int dx, int dy, int d);
+static void hero_hurt(int dmg);
 static void boss_move(Enemy *e, int dx, int dy, int d) {
+    if (bossTipo == 1) { boss2_move(e, dx, dy, d); return; }
     bossT++;
     switch (bossState) {
     case 0: {
@@ -470,6 +498,49 @@ static void boss_move(Enemy *e, int dx, int dy, int d) {
     }
     boss_clamp(e);
 }
+/* Olho de Jade: flutua a meia distância, avisa (olhos vermelhos, cajado erguido), dispara um anel de orbes
+   e uma rajada apontada ao herói, recupera; a cada duas vezes teletransporta-se e chama esqueletos. */
+static void boss2_move(Enemy *e, int dx, int dy, int d) {
+    bossT++;
+    switch (bossState) {
+    case 0: {
+        int sp = d > 120 ? 110 : d < 90 ? -90 : 0;   /* mantém-se a meia distância */
+        e->x += dx * sp / d + (SINT[(bossT * 2) & 255] >> 2); e->y += dy * sp / d;
+        e->face = (uint8_t)(dx < 0);
+        if (bossT > 150) { bossState = 1; bossT = 0; }
+        break; }
+    case 1:
+        if (bossT > 45) { bossState = 2; bossT = 0;
+            for (int k = 0; k < 14; k++) { int a = k * 256 / 14 + (bossCycles * 9);   /* anel de orbes */
+                orbe(e->x, e->y - (34 << FP), SINT[(a + 64) & 255] * 2, SINT[a] * 2); }
+            for (int k = -1; k <= 1; k++) {   /* rajada apontada */
+                int vx = dx * 600 / d, vy = (dy + 30) * 600 / d;
+                if (k) { int32_t x = vx, y = vy; vx = (x * 250 - k * y * 53) / 256; vy = (y * 250 + k * x * 53) / 256; }
+                orbe(e->x, e->y - (34 << FP), vx, vy); }
+            shake = 4; tocar_sfx(SFX_ID_TELEPORT); }
+        break;
+    case 2:
+        if (bossT > 50) { bossState = 0; bossT = 0;
+            if (++bossCycles % 2 == 0) {   /* teletransporte e esqueletos */
+                add_fx(SPR_PUFF, 4, 6, e->x >> FP, (e->y >> FP) - 20, 0);
+                int hx = H.x >> FP, hy = H.y >> FP;
+                for (int tent = 0; tent < 8; tent++) { int a = rndi(256), nx = hx + (SINT[(a + 64) & 255] * 120 >> 8), ny = hy + (SINT[a] * 90 >> 8);
+                    if (!(attr_at(nx, ny) & A_SOLID)) { e->x = nx << FP; e->y = ny << FP; break; } }
+                add_fx(SPR_PUFF, 4, 6, e->x >> FP, (e->y >> FP) - 20, 0);
+                for (int k = 0; k < 4; k++) { int a = k * 64 + 32;
+                    spawn_at(1, (e->x >> FP) + (SINT[(a + 64) & 255] * 50 >> 8), (e->y >> FP) + (SINT[a] * 36 >> 8)); } } }
+        break;
+    }
+    boss_clamp(e);
+}
+static void update_orbes(void) {
+    for (int i = 0; i < MAXEP; i++) { if (!ep[i].on) continue;
+        ep[i].x += ep[i].vx; ep[i].y += ep[i].vy;
+        if (--ep[i].life <= 0) { ep[i].on = 0; continue; }
+        int dx = (ep[i].x >> FP) - (H.x >> FP), dy = (ep[i].y >> FP) - ((H.y >> FP) - 12);
+        if (iabs(dx) < 8 && iabs(dy) < 10) { ep[i].on = 0; hero_hurt(14); }
+    }
+}
 static void start_boss(void) {
     static const int off[4][2] = {{0, -100}, {0, 100}, {-110, 0}, {110, 0}};
     int hx = H.x >> FP, hy = H.y >> FP, k = 0;
@@ -477,7 +548,9 @@ static void start_boss(void) {
     int i = free_enemy(); Enemy *e = &en[i];
     e->x = (hx + off[k][0]) << FP; e->y = (hy + off[k][1]) << FP; e->kx = e->ky = 0;
     e->type = 2; e->on = 1; e->flash = 0; e->cdOrb = 0; e->anim = 0; e->face = 0; e->burn = 0; e->burnT = 0; e->st = 0; e->stT = 0; e->cdHit = 0; e->lento = 0;
-    e->hp = (int16_t)E_HP[2]; bossMaxHp = E_HP[2]; boss_clamp(e);
+    e->hp = (int16_t)BOSS_HP[bossTipo]; bossMaxHp = BOSS_HP[bossTipo]; boss_clamp(e);
+    BOSS_NOME = bossTipo ? "OLHO DE JADE" : "GORGOMUSGO";
+    BOSS_SUB = bossTipo ? "O FEITICEIRO QUE NUNCA DORME" : "O TRONCO QUE DEVORA RUNAS";
     bossIdx = i; bossState = 0; bossT = 0;
     state = ST_INTRO; introT = 0; lightning = 9; shake = 8;
     tocar_sfx(SFX_ID_MONSTER);
@@ -492,6 +565,7 @@ static void hero_hurt(int dmg) {
 static int16_t ghead[GW * GW];
 static void update_enemies(void) {
     int hx = H.x >> FP, hy = H.y >> FP;
+    nVivos = 0; for (int i = 0; i < MAXE; i++) nVivos += en[i].on;
     for (int i = 0; i < GW * GW; i++) ghead[i] = -1;
     for (int i = 0; i < MAXE; i++) {
         Enemy *e = &en[i]; if (!e->on) continue;
@@ -579,34 +653,41 @@ static void weapons(void) {
     if (!autoEspada && (padPressed & BTN_OK)) swordQueued = 1;   /* manual: cada clique vale um golpe */
     if (cdLamina > 0) cdLamina--;
     if (cdLamina <= 0 && (autoEspada || swordQueued)) {
-        int L = lvl[U_LAMINA], R = 38 + 4 * L, dmg = 10 + 4 * (L - 1);
+        int L = lvl[U_LAMINA], R = 42 + 5 * L, dmg = 16 + 6 * (L - 1);
         swordQueued = 0;
-        cdLamina = (64 - 5 * (L - 1)) * cf / 100; H.atkT = 10;
+        cdLamina = (54 - 4 * (L - 1) - (L >= 4 ? 6 : 0)) * cf / 100; H.atkT = 10;
         if (!autoEspada) cdLamina = cdLamina * 3 / 5;   /* em manual a recarga é mais curta */
         tocar_sfx(SFX_ID_ATTACK);
         swingSide ^= 1;
-        if (L >= 4) { lamina_swing(H.fx, H.fy, R, dmg); lamina_swing(-H.fx, -H.fy, R, dmg); }
+        if (L >= 6) for (int k = 0; k < 2; k++) for (int b = 0; b < MAXB; b++) if (!bolts[b].on) {   /* Lâmina de Cinza: ondas de fogo */
+            int sx = k ? -H.fx : H.fx, sy = k ? -H.fy : H.fy; if (!sx && !sy) sx = 1;
+            bolts[b] = (Bolt){H.x, H.y - (12 << FP), sx * 1100, sy * 1100, 40, 1, (uint8_t)(dmg * 3 / 4), 7, 5, -1}; break; }
+        if (L >= 3) { lamina_swing(H.fx, H.fy, R, dmg); lamina_swing(-H.fx, -H.fy, R, dmg); }
         else if (!autoEspada || swingSide) lamina_swing(H.fx, H.fy, R, dmg);   /* manual: sempre para a frente */
         else lamina_swing(-H.fx, -H.fy, R, dmg);
         shake = shake < 2 ? 2 : shake;
     }
     /* Brasas orbitais */
     if (lvl[U_BRASAS]) {
-        int n = lvl[U_BRASAS], R = 34 + 2 * n, dmg = 5 + 2 * n;
-        orbAng = (orbAng + 5) & 255;
+        int L = lvl[U_BRASAS], n = L >= 6 ? 8 : L, R = L >= 6 ? 52 : 34 + 2 * n, dmg = 9 + 3 * n;
+        orbAng = (orbAng + 6) & 255;
         for (int k = 0; k < n; k++) {
             int a = (orbAng + k * 256 / n) & 255;
             int ox = hx + (SINT[(a + 64) & 255] * R >> 8), oy = hy - 10 + (SINT[a] * R * 3 >> 10);
             for (int i = 0; i < MAXE; i++) { Enemy *e = &en[i]; if (!e->on || e->cdOrb) continue;
                 int dx = (e->x >> FP) - ox, dy = (e->y >> FP) - E_R[e->type] - oy;
-                if (iabs(dx) < 9 + E_R[e->type] && iabs(dy) < 9 + E_R[e->type]) { e->cdOrb = 20; hurt_enemy(e, dmg, dx > 0 ? 256 : -256, dy > 0 ? 256 : -256); }
+                if (iabs(dx) < 9 + E_R[e->type] && iabs(dy) < 9 + E_R[e->type]) { e->cdOrb = 18;
+                    if (L >= 6 && e->type != 2) e->burn = 3;   /* Anel de Fogo: queima */
+                    hurt_enemy(e, dmg, dx > 0 ? 256 : -256, dy > 0 ? 256 : -256); }
             }
         }
     }
     /* Faúlha: projéteis para os inimigos mais perto */
     if (lvl[U_FAULHA] && --cdFaulha <= 0) {
-        int L = lvl[U_FAULHA]; cdFaulha = (90 - 8 * L) * cf / 100;
-        for (int k = 0; k < L; k++) {
+        int L = lvl[U_FAULHA], nf = L >= 6 ? 5 : L; cdFaulha = (70 - 6 * L) * cf / 100;
+        if (L >= 6) for (int k = 0; k < 8; k++) for (int b = 0; b < MAXB; b++) if (!bolts[b].on) {   /* Tempestade de Faúlhas */
+            int a = k * 32; bolts[b] = (Bolt){H.x, H.y - (12 << FP), SINT[(a + 64) & 255] * 4, SINT[a] * 4, 70, 1, (uint8_t)(12 + 4 * L), 0, 0, -1}; break; }
+        for (int k = 0; k < nf; k++) {
             int best = -1, bd = 220;
             for (int i = 0; i < MAXE; i++) { Enemy *e = &en[i]; if (!e->on) continue;
                 int d = dist_approx((e->x >> FP) - hx, (e->y >> FP) - hy) + k * 12 * (i & 1);
@@ -614,7 +695,7 @@ static void weapons(void) {
             if (best < 0) break;
             for (int b = 0; b < MAXB; b++) if (!bolts[b].on) {
                 int dx = (en[best].x >> FP) - hx, dy = (en[best].y >> FP) - 6 - (hy - 12), d = dist_approx(dx, dy); if (d < 1) d = 1;
-                bolts[b] = (Bolt){H.x, H.y - (12 << FP), dx * 900 / d, dy * 900 / d, 90, 1, (uint8_t)(7 + 3 * L), 0, 0, -1};
+                bolts[b] = (Bolt){H.x, H.y - (12 << FP), dx * 900 / d, dy * 900 / d, 90, 1, (uint8_t)(12 + 4 * L), 0, 0, -1};
                 break; }
         }
     }
@@ -752,8 +833,8 @@ static void nova_zona(int tipo, int32_t x, int32_t y, int R, int life) {
 static void armas_cacador(void) {
     int hx = H.x >> FP, hy = H.y >> FP, cf = cd_factor();
     if (lvl[U_BESTA] && --cdBesta <= 0) {   /* Besta: setas que atravessam inimigos */
-        int L = lvl[U_BESTA], n = 1 + (L >= 2) + (L >= 5), pierce = (L >= 3 ? 2 : 0) + (L >= 5 ? 1 : 0), sp = L >= 4 ? 1500 : 1200;
-        cdBesta = 55 * cf / 100;
+        int L = lvl[U_BESTA], n = 1 + (L >= 2) + (L >= 5) * 2, pierce = (L >= 3 ? 2 : 0) + (L >= 5 ? 2 : 0), sp = L >= 4 ? 1500 : 1250;
+        cdBesta = (44 - 2 * L) * cf / 100;
         int t = nearest_enemy(hx, hy - 12, 240, -1, -1);
         int tx = t >= 0 ? en[t].x >> FP : hx + H.fx * 100, ty = t >= 0 ? (en[t].y >> FP) - E_R[en[t].type] : hy - 12 + H.fy * 100;
         int dx = tx - hx, dy = ty - (hy - 14), d = dist_approx(dx, dy); if (d < 1) d = 1;
@@ -761,7 +842,9 @@ static void armas_cacador(void) {
             int32_t vx = dx * sp / d, vy = dy * sp / d;
             if (k == 1) roda(&vx, &vy, 1);
             if (k == 2) roda(&vx, &vy, -1);
-            bolts[b] = (Bolt){H.x, H.y - (14 << FP), vx, vy, 50, 1, (uint8_t)(12 + 3 * L), 3, (uint8_t)pierce, -1};
+            if (k == 3) { roda(&vx, &vy, 1); roda(&vx, &vy, 1); }
+            if (k == 4) { roda(&vx, &vy, -1); roda(&vx, &vy, -1); }
+            bolts[b] = (Bolt){H.x, H.y - (14 << FP), vx, vy, 50, 1, (uint8_t)(18 + 5 * L), 3, (uint8_t)pierce, -1};
             break; }
         H.atkT = 10;
     }
@@ -770,18 +853,18 @@ static void armas_cacador(void) {
         for (int k = 0, tent = 0; k < 10 && tent < 40; tent++) { int i = rndi(MAXE);
             if (!en[i].on || dist_approx((en[i].x >> FP) - hx, (en[i].y >> FP) - hy) > 170) continue;
             for (int b = 0; b < MAXB; b++) if (!bolts[b].on) {
-                bolts[b] = (Bolt){en[i].x + ((rndi(9) - 4) << FP), en[i].y - (130 << FP), 0, 1024, 32, 1, 25, 6, 0, -1}; break; }
+                bolts[b] = (Bolt){en[i].x + ((rndi(9) - 4) << FP), en[i].y - (130 << FP), 0, 1024, 32, 1, 45, 6, 0, -1}; break; }
             k++; }
     }
     if (lvl[U_ARMADILHA] && --cdArm <= 0) {   /* Armadilhas: ficam no chão onde passaste */
         int L = lvl[U_ARMADILHA], max = 3 + (L >= 2) + (L >= 5 ? 2 : 0), n = 0;
-        cdArm = 80 * cf / 100;
+        cdArm = 55 * cf / 100;
         for (int i = 0; i < MAXZ; i++) if (zonas[i].on && zonas[i].tipo == 0) n++;
         if (n < max) nova_zona(0, H.x, H.y, 10, 1800);
     }
     if (lvl[U_FALCAO]) {   /* Falcão: voa à tua volta e mergulha sobre os inimigos */
-        int L = lvl[U_FALCAO], n = L >= 6 ? 3 : 1 + (L >= 5), espera = L >= 6 ? 30 : 70 - 8 * (L >= 2) - 8 * (L >= 4);
-        int vel = L >= 3 ? 6 : 4, dmg = 10 + 4 * L + (L >= 4 ? 6 : 0);
+        int L = lvl[U_FALCAO], n = L >= 6 ? 3 : 1 + (L >= 5), espera = L >= 6 ? 24 : 55 - 8 * (L >= 2) - 8 * (L >= 4);
+        int vel = L >= 3 ? 7 : 5, dmg = 18 + 6 * L + (L >= 4 ? 8 : 0);
         for (int k = 0; k < MAXFAL; k++) {
             if (k >= n) { fal[k].on = 0; continue; }
             if (!fal[k].on) { fal[k].on = 1; fal[k].st = 0; fal[k].t = (int16_t)(k * 20); fal[k].x = H.x; fal[k].y = H.y - (30 << FP); }
@@ -803,16 +886,16 @@ static void armas_cacador(void) {
 static void armas_padre(void) {
     int hx = H.x >> FP, hy = H.y >> FP, cf = cd_factor();
     if (lvl[U_AURA] && --cdAura <= 0) {   /* Luz Sagrada: aura que fere quem se aproxima */
-        int L = lvl[U_AURA], R = 28 + 5 * L + (L >= 5 ? 6 : 0) + (L >= 6 ? 16 : 0), dmg = 4 + 2 * L + (L >= 5 ? 3 : 0);
-        cdAura = 20;
+        int L = lvl[U_AURA], R = 30 + 5 * L + (L >= 5 ? 6 : 0) + (L >= 6 ? 16 : 0), dmg = 7 + 3 * L + (L >= 5 ? 4 : 0);
+        cdAura = 16;
         for (int i = 0; i < MAXE; i++) { Enemy *e = &en[i]; if (!e->on) continue;
             int dx = (e->x >> FP) - hx, dy = (e->y >> FP) - hy;
             if (dist_approx(dx, dy * 3 / 2) < R) hurt_enemy(e, dmg, L >= 4 ? (dx > 0 ? 256 : -256) : 0, L >= 4 ? (dy > 0 ? 256 : -256) : 0); }
     }
-    if (lvl[U_AURA] >= 6 && ++curaT >= 50) { curaT = 0; if (H.hp < H.maxhp) H.hp++; }   /* Santuário: cura */
+    if (lvl[U_AURA] >= 6 && ++curaT >= 40) { curaT = 0; if (H.hp < H.maxhp) H.hp++; }   /* Santuário: cura */
     if (lvl[U_AGUA] && --cdAgua <= 0) {   /* Água Benta: frascos que deixam poças sagradas */
         int L = lvl[U_AGUA], n = 1 + (L >= 3) + (L >= 5);
-        cdAgua = 120 * cf / 100;
+        cdAgua = 95 * cf / 100;
         for (int k = 0, prev = -1; k < n; k++) {
             int t = -1; for (int tent = 0; tent < 12 && t < 0; tent++) { int i = rndi(MAXE);
                 if (en[i].on && i != prev && dist_approx((en[i].x >> FP) - hx, (en[i].y >> FP) - hy) < 170) t = i; }
@@ -824,7 +907,7 @@ static void armas_padre(void) {
     }
     if (lvl[U_CRUZ] && --cdCruz <= 0) {   /* Cruz: vai e volta como um bumerangue */
         int L = lvl[U_CRUZ], n = L >= 6 ? 4 : 1 + (L >= 3) + (L >= 5), sp = L >= 4 ? 1150 : 900;
-        cdCruz = 100 * cf / 100;
+        cdCruz = 75 * cf / 100;
         int t = nearest_enemy(hx, hy - 12, 200, -1, -1);
         int dx = t >= 0 ? (en[t].x >> FP) - hx : H.fx * 100 + (H.fx == 0 && H.fy == 0 ? 100 : 0), dy = t >= 0 ? (en[t].y >> FP) - hy : H.fy * 100;
         int d = dist_approx(dx, dy); if (d < 1) d = 1;
@@ -832,7 +915,7 @@ static void armas_padre(void) {
             int32_t vx = dx * sp / d, vy = dy * sp / d;
             if (L >= 6) { static const int DX[4] = {1, 0, -1, 0}, DY[4] = {0, 1, 0, -1}; vx = DX[k] * sp; vy = DY[k] * sp; }
             else { if (k == 1) { roda(&vx, &vy, 1); roda(&vx, &vy, 1); } if (k == 2) { roda(&vx, &vy, -1); roda(&vx, &vy, -1); } }
-            bolts[b] = (Bolt){H.x, H.y - (14 << FP), vx, vy, 70, 1, (uint8_t)(10 + 3 * L + (L >= 5 ? 4 : 0)), 5, 0, -1};
+            bolts[b] = (Bolt){H.x, H.y - (14 << FP), vx, vy, 70, 1, (uint8_t)(16 + 5 * L + (L >= 5 ? 6 : 0)), 5, 0, -1};
             break; }
         H.atkT = 10;
     }
@@ -846,22 +929,22 @@ static void update_zonas(void) {
             int L = lvl[U_ARMADILHA];
             for (int i = 0; i < MAXE; i++) { Enemy *e = &en[i]; if (!e->on) continue;
                 if (iabs((e->x >> FP) - (q->x >> FP)) > 9 + E_R[e->type] / 2 || iabs((e->y >> FP) - (q->y >> FP)) > 7) continue;
-                if (L >= 6) explode(q->x >> FP, (q->y >> FP) - 4, 34, 25 + 5 * L, 0);
-                else { e->lento = (uint8_t)(L >= 4 ? 110 : 80); hurt_enemy(e, 20 + 5 * L + (L >= 3 ? 8 : 0), 0, 0); }
+                if (L >= 6) explode(q->x >> FP, (q->y >> FP) - 4, 40, 40 + 8 * L, 0);
+                else { e->lento = (uint8_t)(L >= 4 ? 110 : 80); hurt_enemy(e, 35 + 8 * L + (L >= 3 ? 10 : 0), 0, 0); }
                 q->fecha = 1; q->life = 30; break; }
-        } else if (q->t % 15 == 0) {   /* poça de água benta */
+        } else if (q->t % 12 == 0) {   /* poça de água benta */
             int L = lvl[U_AGUA];
             for (int i = 0; i < MAXE; i++) { Enemy *e = &en[i]; if (!e->on) continue;
                 int dx = (e->x >> FP) - (q->x >> FP), dy = (e->y >> FP) - (q->y >> FP);
                 if (dist_approx(dx, dy * 2) > q->R) continue;
                 if (L >= 6 && e->lento < 20) e->lento = 20;
-                hurt_enemy(e, 5 + 2 * L + (L >= 5 ? 3 : 0), 0, 0); }
+                hurt_enemy(e, 8 + 3 * L + (L >= 5 ? 4 : 0), 0, 0); }
         }
     }
 }
 static void update_bolts(void) {
     for (int b = 0; b < MAXB; b++) { Bolt *o = &bolts[b]; if (!o->on) continue;
-        if (o->kind >= 3) {   /* seta, frasco, cruz e seta a cair do céu */
+        if (o->kind >= 3) {   /* seta, frasco, cruz, seta a cair do céu e onda de fogo */
             if (o->kind == 5 && o->life < 36) {   /* cruz: volta para o padre */
                 int dx = (H.x >> FP) - (o->x >> FP), dy = (H.y >> FP) - 14 - (o->y >> FP), d = dist_approx(dx, dy); if (d < 1) d = 1;
                 int sp = dist_approx(o->vx, o->vy); o->vx = dx * sp / d; o->vy = dy * sp / d;
@@ -869,6 +952,7 @@ static void update_bolts(void) {
                 o->life = 20;   /* só desaparece quando chega ao padre */
             }
             o->x += o->vx; o->y += o->vy;
+            if (o->kind == 7 && (o->life & 1)) add_part(1, o->x, o->y, 0, -60, 14, rndi(2) ? E3 : E4);
             if (o->kind == 3) { int sx = o->x >> FP, sy = (o->y >> FP) + 14;
                 if ((attr_at(sx, sy) & A_SOLID) && !(attr_at(sx, sy) & A_WATER)) { o->on = 0; continue; } }
             if (--o->life <= 0) {
@@ -879,7 +963,7 @@ static void update_bolts(void) {
                     add_fx(SPR_SPARK, 3, 3, o->x >> FP, (o->y >> FP) + 4, 0); }
                 o->on = 0; continue;
             }
-            if (o->kind == 3 || o->kind == 5) for (int i = 0; i < MAXE; i++) { Enemy *e = &en[i]; if (!e->on) continue;
+            if (o->kind == 3 || o->kind == 5 || o->kind == 7) for (int i = 0; i < MAXE; i++) { Enemy *e = &en[i]; if (!e->on) continue;
                 int dx = (e->x >> FP) - (o->x >> FP), dy = (e->y >> FP) - E_R[e->type] - (o->y >> FP), r = E_R[e->type] + (o->kind == 5 ? 7 : 4);
                 if (iabs(dx) >= r || iabs(dy) >= r) continue;
                 if (o->kind == 5) { if (!e->cdHit) { e->cdHit = 15; hurt_enemy(e, o->dmg, o->vx > 0 ? 256 : -256, 0); } continue; }
@@ -1008,6 +1092,7 @@ static void step_play(void) {
     }
     H.anim++; if (H.inv) H.inv--; if (H.flash) H.flash--; if (H.atkT) H.atkT--;
     if ((padPressed & SEGA_CTRL_START)) { state = ST_PAUSE; return; }
+    faiscas = 0;
     /* aparecimento: cada vez mais depressa; hordas a cada minuto */
     int t = steps / 60;
     if (--spawnT <= 0) {
@@ -1016,7 +1101,8 @@ static void step_play(void) {
         int huskPct = t < 40 ? 0 : (t - 40) / 4; if (huskPct > 45) huskPct = 45;
         spawn_ring(rndi(100) < huskPct ? 1 : 0, 200, 230);
     }
-    if (--hordeT <= 0) { hordeT = 60 * 60; for (int k = 0; k < 16; k++) { int a = k * 16;
+    if (--hordeT <= 0) { hordeT = 60 * 60; int nh = ENEMY_CAP + 6 - nVivos; if (nh > 16) nh = 16;   /* horda menor quando já há muitos */
+        for (int k = 0; k < nh; k++) { int a = k * 256 / (nh > 0 ? nh : 1);
         spawn_at(0, (H.x >> FP) + (SINT[(a + 64) & 255] * 170 >> 8), (H.y >> FP) + (SINT[a] * 130 >> 8)); } }
     switch (heroi) { case HERO_NINJA: weapons(); break; case HERO_MAGO: magias(); break;
                      case HERO_CACADOR: armas_cacador(); break; default: armas_padre(); break; }
@@ -1030,12 +1116,15 @@ static void step_play(void) {
     if (mapNameT) mapNameT--;
     if (bannerT) bannerT--;
     /* boss do primeiro mapa no nível 15 */
-    if (mapa == 0 && !bossDone && bossIdx < 0 && level >= BOSS_NIVEL && state == ST_PLAY) start_boss();
+    if (mapa == 0 && !bossDone && bossIdx < 0 && level >= BOSS_NIVEL && state == ST_PLAY) { bossTipo = 0; start_boss(); }
+    /* segundo boss na aldeia, aos 2:30 */
+    if (mapa == 1 && !bossDone && bossIdx < 0 && mapSteps >= 60 * 150 && state == ST_PLAY) { bossTipo = 1; start_boss(); }
+    update_orbes();
     /* entrar no portal */
     if (portalOn) { int dx = (H.x >> FP) - portalX, dy = (H.y >> FP) - portalY;
         if (iabs(dx) < 14 && iabs(dy) < 10) { state = ST_TRANSIT; transT = 0; lightning = 14; shake = 6; tocar_sfx(SFX_ID_TELEPORT); } }
-    /* aldeia: sobrevive 5 minutos até ao amanhecer */
-    if (mapa == 1 && mapSteps >= 60 * 300) state = ST_WIN;
+    /* pântano (nível final): sobrevive 5 minutos até ao amanhecer */
+    if (mapa == 2 && mapSteps >= 60 * 300) state = ST_WIN;
 }
 static void enter_map(int m) {
     for (int i = 0; i < MAXE; i++) en[i].on = 0;
@@ -1045,7 +1134,8 @@ static void enter_map(int m) {
     for (int i = 0; i < MAXPT; i++) pt[i].on = 0;
     load_map(m);
     H.x = MAPAS[m].sx << FP; H.y = MAPAS[m].sy << FP; H.fx = 0; H.fy = -1; H.dir = UP; H.inv = 60;
-    portalOn = 0; bossIdx = -1; mapNameT = 240; bannerT = 0; mapSteps = 0; spawnT = 90; hordeT = 60 * 60;
+    portalOn = 0; bossIdx = -1; bossDone = 0; bossCycles = 0; mapNameT = 240; bannerT = 0; mapSteps = 0; spawnT = 90; hordeT = 60 * 60;
+    for (int i = 0; i < MAXEP; i++) ep[i].on = 0;
     for (int i = 0; i < MAXMET; i++) met[i].on = 0;
     for (int i = 0; i < MAXZ; i++) zonas[i].on = 0;
     for (int i = 0; i < MAXFAL; i++) fal[i].on = 0;
@@ -1356,13 +1446,17 @@ static void draw_world(void) {
         int zx = (zonas[z].x >> FP) - ce, zy = (zonas[z].y >> FP) - camY;
         if (zx < -60 || zx > SCR_W + 60 || zy < -40 || zy > SCR_H + 40) continue;
         if (zonas[z].tipo == 0) spr(SPR_ARMADILHA + zonas[z].fecha, 0, zx, zy);
-        else { int R = zonas[z].R, ry = R / 2;
-            for (int dy = -ry; dy <= ry; dy++) for (int dx = -R; dx <= R; dx++) {
-                if (dx * dx * ry * ry + dy * dy * R * R > R * R * ry * ry) continue;
-                int m = (dx + dy * 3 + (steps >> 2)) & 7; if (m == 0) pset(zx + dx, zy + dy, M3); else if (m == 4 && ((dx ^ dy) & 1)) pset(zx + dx, zy + dy, M2); } }
+        else {   /* poça: uma linha em cada duas, um píxel em cada quatro, largura da linha tirada de uma tabela */
+            static const uint8_t ELIPSE[17] = {255, 254, 252, 248, 243, 237, 229, 220, 209, 197, 182, 166, 147, 125, 99, 65, 0};
+            int R = zonas[z].R, ry = R / 2, fase = (steps >> 2) & 3;
+            for (int dy = -ry + 1; dy < ry; dy += 2) {
+                int yy = zy + dy; if (yy < 0 || yy >= SCR_H) continue;
+                int w = R * ELIPSE[iabs(dy) * 16 / ry] >> 8, off = ((dy >> 1) + fase) & 3;
+                for (int dx = -w + ((off - (-w)) & 3); dx <= w; dx += 4) pset(zx + dx, yy, ((dx >> 2) + (dy >> 1)) & 1 ? M2 : M3);
+            } }
     }
     if (heroi == HERO_PADRE && lvl[U_AURA]) {   /* aura da Luz Sagrada */
-        int L = lvl[U_AURA], R = 28 + 5 * L + (L >= 5 ? 6 : 0) + (L >= 6 ? 16 : 0), ax = (H.x >> FP) - ce, ay = (H.y >> FP) - camY - 4;
+        int L = lvl[U_AURA], R = 30 + 5 * L + (L >= 5 ? 6 : 0) + (L >= 6 ? 16 : 0), ax = (H.x >> FP) - ce, ay = (H.y >> FP) - camY - 4;
         for (int k = 0; k < 32; k++) { int a = (k * 8 + steps * 2) & 255;
             pset(ax + (SINT[(a + 64) & 255] * R >> 8), ay + (SINT[a] * R * 2 / 3 >> 8), (k & 1) ? E4 : BONE); }
     }
@@ -1388,7 +1482,7 @@ static void draw_world(void) {
             if (p->flags & PF_RUINED) spr(SPR_FLAME + fa, 0, sx - 6, sy - 20); }
         else if (it->kind == 3) spr(SPR_PORTAL + ((steps >> 3) & 3), 0, portalX - ce, portalY - camY);
         else if (it->kind == 1) { Enemy *e = &en[it->idx];
-            int fr = e->type == 2 ? SPR_BOSS + (bossState == 1 ? 2 : (e->anim >> 4) & 1)
+            int fr = e->type == 2 ? (bossTipo ? SPR_BOSS2 : SPR_BOSS) + (bossState == 1 ? 2 : (e->anim >> 4) & 1)
                    : e->type ? (e->st == 1 ? SPR_ESQ_ATK : e->st == 2 ? SPR_ESQ_ATK + 1 : SPR_HUSK + ((e->anim >> 4) & 1))
                    : SPR_CRAWL + ((e->anim >> 3) & 1);
             spr(fr, (e->flash ? 4 : 0) | (e->face ? 2 : 0), (e->x >> FP) - ce, (e->y >> FP) - camY); }
@@ -1401,7 +1495,7 @@ static void draw_world(void) {
     /* efeitos por cima */
     for (int i = 0; i < MAXFX; i++) if (fx[i].on) spr(fx[i].base + fx[i].t / fx[i].rate, fx[i].v, fx[i].x - ce, fx[i].y - camY);
     if (state != ST_TITLE && lvl[U_BRASAS]) {
-        int nO = lvl[U_BRASAS], R = 34 + 2 * nO;
+        int nO = lvl[U_BRASAS] >= 6 ? 8 : lvl[U_BRASAS], R = lvl[U_BRASAS] >= 6 ? 52 : 34 + 2 * nO;
         for (int k = 0; k < nO; k++) { int a = (orbAng + k * 256 / nO) & 255;
             spr(SPR_ORB + ((steps >> 2) & 1), 0, hx - ce + (SINT[(a + 64) & 255] * R >> 8), hy - 10 - camY + (SINT[a] * R * 3 >> 10)); }
     }
@@ -1420,11 +1514,15 @@ static void draw_world(void) {
         if (o->kind == 3) { int sx = (o->x >> FP) - ce, sy = (o->y >> FP) - camY, tx = sx - (o->vx * 6 >> FP), ty = sy - (o->vy * 6 >> FP);
             line8(tx, ty, sx, sy, S1); pset(sx, sy, BONE); pset(tx, ty, G2); }
         else if (o->kind == 6) { int sx = (o->x >> FP) - ce, sy = (o->y >> FP) - camY; line8(sx, sy - 9, sx, sy, S1); pset(sx, sy, BONE); pset(sx, sy + 1, BONE); }
+        else if (o->kind == 7) { int sx = (o->x >> FP) - ce, sy = (o->y >> FP) - camY, ux = o->vx > 0 ? 1 : o->vx < 0 ? -1 : 0, uy = o->vy > 0 ? 1 : o->vy < 0 ? -1 : 0;
+            for (int k = -7; k <= 7; k++) { int bk = k * k / 8; int px = sx - uy * k - ux * bk, py = sy + ux * k - uy * bk;   /* meia-lua de fogo */
+                pset(px, py, iabs(k) < 4 ? E4 : E3); pset(px - ux, py - uy, E2); } }
         else if (o->kind == 4) spr(SPR_FRASCO, 0, (o->x >> FP) - ce, (o->y >> FP) - camY);
         else if (o->kind == 5) spr(SPR_CRUZ + ((o->life >> 2) & 1), 0, (o->x >> FP) - ce, (o->y >> FP) - camY);
         else if (o->kind == 1) spr(SPR_FIREBALL + f, 0, (o->x >> FP) - ce, (o->y >> FP) - camY);
         else if (o->kind == 2) spr(SPR_MISSILE + f, 0, (o->x >> FP) - ce, (o->y >> FP) - camY);
         else spr(SPR_BOLT + f, o->vx < 0 ? 2 : 0, (o->x >> FP) - ce, (o->y >> FP) - camY); }
+    for (int i = 0; i < MAXEP; i++) if (ep[i].on) spr(SPR_ORBE + ((steps >> 2) & 1), 0, (ep[i].x >> FP) - ce, (ep[i].y >> FP) - camY);
     for (int k = 0; k < MAXFAL; k++) if (fal[k].on) {   /* falcões */
         int fxx = (fal[k].x >> FP) - ce, fyy = (fal[k].y >> FP) - camY;
         int dirx = fal[k].st == 1 && fal[k].alvo >= 0 ? (en[fal[k].alvo].x >> FP) - (fal[k].x >> FP) : (SINT[(steps * 3 + k * 85 + 64) & 255] < 0 ? 1 : -1);
@@ -1498,14 +1596,14 @@ static void draw_screens(void) {
             int y = 80 + i * 34, u = choice[i];
             if (i == sel) { rect(36 + hud_dx, y - 3, 248, 30, D2); rect(36 + hud_dx, y - 3, 248, 1, E3); rect(36 + hud_dx, y + 26, 248, 1, E3); rect(36 + hud_dx, y - 3, 1, 30, E3); rect(283 + hud_dx, y - 3, 1, 30, E3); }
             int evo = IS_MAGIA(u) && lvl[u] == 5;
-            int k = 0; const char *nm = evo ? EVO_NAME[u - U_FOGO] : UP_NAME[u]; while (nm[k]) { b[k] = nm[k]; k++; }
+            int k = 0; const char *nm = evo ? EVO_NAME[u] : UP_NAME[u]; while (nm[k]) { b[k] = nm[k]; k++; }
             if (evo) { const char *nv = " EVOLUÇÃO!"; for (int j = 0; nv[j]; j++) b[k++] = nv[j]; }
             else if (lvl[u]) { b[k++] = ' '; b[k++] = 'N'; b[k++] = 'V'; b[k++] = ' '; numstr(t, lvl[u] + 1); for (int j = 0; t[j]; j++) b[k++] = t[j]; }
             else { const char *nv = " NOVO!"; for (int j = 0; nv[j]; j++) b[k++] = nv[j]; }
             b[k] = 0;
             text(b, 44, y + 2, evo ? C1 : i == sel ? E4 : BONE, 1);
             const char *ds = lvl[u] == 0 && UP_NEW[u][0] ? UP_NEW[u]
-                           : evo ? EVO_DESC[u - U_FOGO] : IS_MAGIA(u) ? MAGIA_NV[u - U_FOGO][lvl[u] - 1] : UP_DESC[u];
+                           : evo ? EVO_DESC[u] : IS_MAGIA(u) ? MAGIA_NV[u][lvl[u] - 1] : UP_DESC[u];
             text(ds, 44, y + 14, G2, 1);
         }
         if (!nChoice) text_c("TUDO NO MÁXIMO: +20 DE VIDA", 100, BONE, 1);
@@ -1640,6 +1738,12 @@ static void setup_linetable(void) {
 void pv_cheat(void) { level = 14; xp = xpNext - 1; lvl[U_LAMINA] = 6; lvl[U_BRASAS] = 5; lvl[U_FAULHA] = 5; H.maxhp = H.hp = 999; }
 void pv_magias(int n) { lvl[U_FOGO] = lvl[U_MISSEIS] = lvl[U_BURACO] = lvl[U_RAIO] = (uint8_t)n; H.maxhp = H.hp = 999; }
 void pv_heroi(int h) { heroi = h; }
+void pv_imortal(void) { H.maxhp = H.hp = 30000; }
+void pv_ir_mapa(int m) { enter_map(m); mapa = m; }
+void pv_tempo(int sg) { mapSteps = sg * 60; }
+int pv_mapa2(void) { return mapa; }
+int pv_bossst(void) { return bossIdx >= 0 ? bossState : -1; }
+int pv_ao_portal(void) { if (!portalOn) return 0; H.x = portalX << FP; H.y = portalY << FP; return 1; }
 void pv_armas(int n) { for (int u = 0; u < U_CORACAO; u++) if (upgrade_do_heroi(u)) lvl[u] = (uint8_t)n; H.maxhp = H.hp = 999; }
 void pv_esq(void) { spawn_at(1, (H.x >> FP) + 60, (H.y >> FP) + 4); spawn_at(1, (H.x >> FP) - 70, (H.y >> FP) - 10); }
 int pv_bh(void) { return bh.on ? bh.t : -1; }

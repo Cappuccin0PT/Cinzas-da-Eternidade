@@ -4,7 +4,7 @@
  *
  * O PWM corre a 22050 Hz (a esta frequência a portadora do PWM não se ouve no hardware real).
  * Música: src/musica.h, IMA ADPCM (4 bits) a MUSICA_RATE, descomprimida em tempo real e interpolada
- *         para 22050 Hz; faixas: 0 fortaleza e título, 1 aldeia, 2 intro, 3 sem música.
+ *         para 22050 Hz; faixas: 0 fortaleza e título, 1 aldeia, 2 intro, 3 pântano, 4 sem música.
  * Efeitos: src/sfx.h, 16 bits com sinal à mesma taxa, em duas vozes (golpe da espada e restantes),
  * para o golpe, que é frequente, não cortar os outros sons.
  *
@@ -28,8 +28,8 @@
 
 volatile uint32_t som_pedido, som_golpe, som_musica;
 
-static const uint8_t *const FAIXA[3] = {MUSICA_FORTALEZA, MUSICA_ALDEIA, MUSICA_INTRO};
-static const uint32_t FAIXA_LEN[3] = {MUSICA_FORTALEZA_LEN, MUSICA_ALDEIA_LEN, MUSICA_INTRO_LEN};
+static const uint8_t *const FAIXA[NFAIXAS] = {MUSICA_FORTALEZA, MUSICA_ALDEIA, MUSICA_INTRO, MUSICA_PANTANO};
+static const uint32_t FAIXA_LEN[NFAIXAS] = {MUSICA_FORTALEZA_LEN, MUSICA_ALDEIA_LEN, MUSICA_INTRO_LEN, MUSICA_PANTANO_LEN};
 
 /* Descodificador IMA ADPCM: devolve a próxima amostra de 16 bits da faixa */
 typedef struct { const uint8_t *d; uint32_t len, pos; int32_t pred; int idx; } Adpcm;
@@ -94,7 +94,7 @@ void slave(void) {
     Voz golpe = {0, 0, 0, 0}, outro = {0, 0, 0, 0};
     uint32_t ultimo = UNCACHED(som_pedido), ultGolpe = UNCACHED(som_golpe), faixa = UNCACHED(som_musica), frac = 0;
     Adpcm mus; int32_t s0 = 0, s1 = 0;
-    if (faixa < 3) { adpcm_inicia(&mus, faixa); s0 = adpcm_proxima(&mus); s1 = adpcm_proxima(&mus); }
+    if (faixa < NFAIXAS) { adpcm_inicia(&mus, faixa); s0 = adpcm_proxima(&mus); s1 = adpcm_proxima(&mus); }
     for (;;) {
         uint32_t ped = UNCACHED(som_pedido), gp = UNCACHED(som_golpe);
         if (ped != ultimo) { ultimo = ped; voz_inicia(&outro, ped & 15); }
@@ -102,10 +102,10 @@ void slave(void) {
         uint32_t f = UNCACHED(som_musica);
         if (f != faixa) {   /* mudou de faixa: começa do início */
             faixa = f; frac = 0;
-            if (faixa < 3) { adpcm_inicia(&mus, faixa); s0 = adpcm_proxima(&mus); s1 = adpcm_proxima(&mus); }
+            if (faixa < NFAIXAS) { adpcm_inicia(&mus, faixa); s0 = adpcm_proxima(&mus); s1 = adpcm_proxima(&mus); }
         }
         int32_t mix = 0;
-        if (faixa < 3) {
+        if (faixa < NFAIXAS) {
             /* música: interpolação linear entre duas amostras descomprimidas */
             mix = s0 + (((s1 - s0) * (int32_t)(frac >> 4)) >> 12);
             frac += passo;

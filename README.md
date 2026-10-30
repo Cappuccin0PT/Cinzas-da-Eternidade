@@ -56,21 +56,40 @@ O logótipo vem de `arte/logo.png`, convertido para a paleta do jogo com `tools/
 
 As molduras são sprites gerados em `tools/gerar_assets.c`; os valores são desenhados por cima pelo jogo.
 
+## Níveis
+
+| Nível | Mapa | Música | Como se passa |
+| --- | --- | --- | --- |
+| 1 | Pátio da Fortaleza | `musica/Arcade_Rush.mp3` (cortada em 90 s) | No nível de personagem 15 aparece o Gorgomusgo; derrotado, abre-se o portal |
+| 2 | Aldeia de Hinosato | `musica/aldeia.mp3` | Aos 2:30 aparece o Olho de Jade; derrotado, abre-se o portal |
+| 3 | Pântano das Brumas | `musica/pantano.mp3` (ciclo perfeito de 52 s) | Sobrevive 5 minutos para vencer |
+
+**Olho de Jade** (segundo boss): feiticeiro que flutua a meia distância. Avisa erguendo o cajado (olhos vermelhos), dispara um anel de orbes de jade e uma rajada apontada ao herói, e a cada duas vezes teletransporta-se e chama esqueletos.
+
+**Espaço na ROM:** as músicas são o que mais ocupa (cerca de 0,32 MB por minuto). O ideal são faixas de 60 a 90 segundos feitas para repetir; a da fase 1 é cortada em 90 s pelo workflow.
+
+**Ciclo perfeito:** a música do pântano é cortada por `tools/fazer_loop.py` num ciclo de 32 compassos (128 batidas a 147 bpm, de 1,625 s a 53,841 s), escolhido por análise da música (alinhado com os compassos e no ponto em que o som a seguir ao fim é mais parecido com o som a seguir ao início), com 60 ms de transição na ligação. Para outra música, os pontos de início e fim têm de ser recalculados.
+
+**Desempenho:** no máximo 52 inimigos ao mesmo tempo (60 com hordas e invocações dos bosses); acima disso, os novos inimigos substituem os rastejantes mais afastados por esqueletos, para a dificuldade continuar a subir sem encher o ecrã. Cada passo cria no máximo 4 faíscas de impacto, e as poças de água benta são desenhadas em pontilhado leve.
+
 ## Personagens
 
 Escolhe-se em JOGAR, com esquerda e direita. As melhorias passivas são comuns a todos.
 
 | Personagem | Vida | Armas |
 | --- | --- | --- |
-| Ninja | 100 | Lâmina (automática ou manual), Brasas orbitais, Faúlha |
+| Ninja | 110 | Lâmina (automática ou manual), Brasas orbitais, Faúlha |
 | Feiticeira | 85 | Bola de Fogo, Mísseis Arcanos, Buraco Negro, Relâmpago em Cadeia |
-| Caçador | 90 | Besta, Armadilhas, Falcão |
-| Padre | 110 | Luz Sagrada, Água Benta, Cruz |
+| Caçador | 100 | Besta, Armadilhas, Falcão |
+| Padre | 120 | Luz Sagrada, Água Benta, Cruz |
 
-As armas da feiticeira, do caçador e do padre têm 5 níveis; a melhoria seguinte ao nível 5 é a evolução:
+Todas as armas têm 5 níveis; a melhoria seguinte ao nível 5 é a evolução:
 
 | Arma | O que faz | Evolução |
 | --- | --- | --- |
+| Lâmina | Corte em arco; corta para os dois lados a partir do nível 3 | Lâmina de Cinza (o corte lança ondas de fogo) |
+| Brasas orbitais | Rodam à volta e ferem | Anel de Fogo (oito brasas que queimam) |
+| Faúlha | Projéteis ao mais perto | Tempestade de Faúlhas (em todas as direções) |
 | Bola de Fogo | Explode em área; queima | Chuva de Meteoros |
 | Mísseis Arcanos | Perseguem; ricocheteiam | Barragem Arcana |
 | Buraco Negro | Puxa e fere | Singularidade (explode no fim) |

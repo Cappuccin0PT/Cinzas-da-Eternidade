@@ -1075,6 +1075,62 @@ static void build_crypt(void) {   /* fundo da cripta: parede de pedra, portal em
         for (int y = 2; y < 8; y++) for (int x = 3; x < 9; x++) tcrypt[sy + y][sx + x] = BONE;
         tcrypt[sy + 4][sx + 4] = INK; tcrypt[sy + 4][sx + 7] = INK; tcrypt[sy + 6][sx + 5] = INK; }
 }
+/* ===== Pântano ===== */
+static void draw_salgueiro(Img *im) {   /* 48x64: tronco retorcido e ramos caídos com musgo */
+    p(21,30,7,32,S0); p(21,30,2,32,S1); p(26,30,2,32,D1); p(18,58,13,4,S0); p(16,61,5,2,S0); p(29,60,5,2,S0);
+    e(24,24,18,12,D1); e(22,20,14,8,D2);
+    for (int k = 0; k < 11; k++) { int x = 6 + k * 3 + rndi(2), y = 18 + rndi(8), len = 14 + rndi(18);
+        for (int j = 0; j < len; j++) p(x + (j > len / 2 ? (k & 1) : 0), y + j, 1, 1, j % 5 == 4 ? V1 : V0); }
+    for (int i = 0; i < 12; i++) p(8 + rndi(32), 14 + rndi(14), 2, 1, V1);
+    p(12,28,9,2,S0); p(28,26,10,2,S0);
+}
+static void draw_juncos(Img *im) {   /* 16x24 */
+    for (int k = 0; k < 6; k++) { int x = 2 + k * 2, h = 12 + rndi(10);
+        p(x, 24 - h, 1, h, (k & 1) ? V1 : V0); if (k % 2 == 0) { p(x - 1, 24 - h - 1, 2, 4, S0); p(x - 1, 24 - h - 1, 1, 1, S1); } }
+}
+static void draw_cogumelos(Img *im) {   /* 16x16, chapéus roxos que brilham */
+    p(4,10,2,5,BONE); p(10,8,2,7,BONE); p(7,12,1,3,G2);
+    e(5,9,3.5f,2,C1); e(11,7,4,2.5f,C1); e(7.5f,11,2,1.5f,C0);
+    p(4,8,1,1,BONE); p(11,6,1,1,BONE); p(13,7,1,1,BONE); p(10,5,2,1,E4);
+}
+/* Olho de Jade (64x64): feiticeiro que flutua, capuz com coroa, olhos verdes, manto azul esfarrapado que
+   acaba em névoa, cajado com um olho de jade num aro dourado. f: 0 e 1 a flutuar, 2 aviso (cajado erguido, olhos vermelhos) */
+static void draw_boss2(Img *im, int f) {
+    int Y = f == 1 ? 1 : 0, warn = f == 2;
+    for (int y = 24; y < 58; y++) {   /* manto: alarga e desfaz-se em tiras */
+        int w = 10 + (y - 24) / 2; if (w > 22) w = 22;
+        for (int x = 32 - w; x < 32 + w; x++) {
+            int tira = ((x + (f & 1)) % 5 == 0) && y > 46;
+            if (y > 50 && ((x * 7 + y * 3 + f) % 4) == 0) continue;   /* névoa em baixo */
+            if (y > 54 && ((x + y) & 1)) continue;
+            uint8_t c = M1; if (x < 32 - w + 3) c = M2; if (x > 32 + w - 3) c = M0; if (tira) c = M0;
+            ip(im, x, y + Y, 1, 1, c);
+        }
+    }
+    p(30, 26 + Y, 4, 26, E3); p(31, 26 + Y, 2, 26, E4);   /* faixa dourada ao centro */
+    for (int k = 0; k < 3; k++) { p(29, 32 + k * 7 + Y, 6, 1, E3); p(31, 31 + k * 7 + Y, 2, 3, V2); }   /* fechos de jade */
+    e(32, 22 + Y, 14, 6, M2); p(18, 20 + Y, 28, 2, M3);   /* ombros */
+    p(16, 24 + Y, 6, 12, M1); p(42, 24 + Y, 6, 12, M1); p(16, 24 + Y, 1, 12, M3);   /* mangas */
+    p(16, 35 + Y, 6, 2, E3); p(42, 35 + Y, 6, 2, E3);
+    p(17, 37 + Y, 4, 4, S2); for (int k = 0; k < 3; k++) p(17 + k * 2, 41 + Y, 1, 2, S1);   /* mão esquerda com chama verde */
+    if (!warn) { e(19, 43 + Y, 3, 3, V1); p(19, 42 + Y, 1, 2, V2); }
+    e(32, 13 + Y, 9, 10, M1); e(30, 9 + Y, 5, 5, M2);   /* capuz */
+    e(32, 15 + Y, 6, 6, INK);
+    uint8_t olho = warn ? RED : V2;
+    p(28, 14 + Y, 3, 2, olho); p(34, 14 + Y, 3, 2, olho); p(29, 14 + Y, 1, 1, BONE); p(35, 14 + Y, 1, 1, BONE);
+    p(23, 4 + Y, 18, 3, E3); p(23, 4 + Y, 18, 1, E4);   /* coroa sobre o capuz */
+    for (int k = 0; k < 4; k++) { p(24 + k * 5, 0 + Y, 2, 4, E3); p(24 + k * 5, 0 + Y, 1, 1, E4); }
+    p(31, 5 + Y, 2, 2, V2);
+    int sy = warn ? 0 : 6;   /* cajado com o olho de jade */
+    p(46, 20 + sy + Y - 6, 2, 40 - sy, S1); p(46, 20 + sy + Y - 6, 1, 40 - sy, S2);
+    p(44, 36 + Y, 6, 4, M1); p(44, 36 + Y, 6, 1, M3);   /* mão direita */
+    int cy = (warn ? 6 : 12) + Y;
+    e(47, (float)cy, 6, 7, E3); e(47, (float)cy, 4.5f, 5.5f, V0); e(47, (float)cy, 3.5f, 4.5f, V1); e(47, (float)cy - 1, 2, 2.5f, V2);
+    p(47, cy - 2, 1, 4, INK); p(46, cy - 3, 1, 1, BONE);
+    p(41, cy + 5, 3, 2, E3); p(50, cy + 5, 3, 2, E3); p(46, cy - 8, 2, 2, E4);
+    if (warn) for (int i = 0; i < 10; i++) p(40 + rndi(15), cy - 9 + rndi(18), 1, 1, (i & 1) ? V2 : BONE);
+}
+static void draw_orbe(Img *im, int f) { e(4,4,3.5f,3.5f,V1); e(4,4,2.2f,2.2f,V2); p(3,3,2,2,f ? BONE : V2); }
 static void rot90(const uint8_t *src, uint8_t *dst, int n) {   /* rotação de 90° no sentido dos ponteiros */
     for (int y = 0; y < n; y++) for (int x = 0; x < n; x++) dst[x * n + (n - 1 - y)] = src[y * n + x];
 }
@@ -1118,6 +1174,11 @@ static void build_sprites(void) {
     { Img im = blank(24, 10); draw_shadow(&im, 24, 10); add_sprite(SPR_SH_M, work, 24, 10, 12, 5); }
     { Img im = blank(40, 14); draw_shadow(&im, 40, 14); add_sprite(SPR_SH_L, work, 40, 14, 20, 7); }
     for (int f = 0; f < 3; f++) { Img im = blank(64, 64); draw_boss(&im, f); outline(&im); add_sprite_full(SPR_BOSS + f, work, 64, 64, 32, 62); }
+    for (int f = 0; f < 3; f++) { Img im = blank(64, 64); draw_boss2(&im, f); outline(&im); add_sprite_full(SPR_BOSS2 + f, work, 64, 64, 32, 60); }
+    for (int f = 0; f < 2; f++) { Img im = blank(8, 8); draw_orbe(&im, f); outline(&im); add_sprite(SPR_ORBE + f, work, 8, 8, 4, 4); }
+    { Img im = blank(48, 64); draw_salgueiro(&im); outline(&im); add_sprite(SPR_SALGUEIRO, work, 48, 64, 24, 62); }
+    { Img im = blank(16, 24); draw_juncos(&im); outline(&im); add_sprite(SPR_JUNCOS, work, 16, 24, 8, 23); }
+    { Img im = blank(16, 16); draw_cogumelos(&im); outline(&im); add_sprite(SPR_COGUMELOS, work, 16, 16, 8, 15); }
     for (int f = 0; f < 4; f++) { Img im = blank(48, 64); draw_portal(&im, f); add_sprite(SPR_PORTAL + f, work, 48, 64, 24, 62); }
     for (int d = 0; d < 2; d++) {   /* setas: base direita e diagonal, rodadas em passos de 90° */
         Img im = blank(16, 16); draw_arrow(&im, d); outline(&im);
@@ -1174,7 +1235,8 @@ static void build_sprites(void) {
 /* ===== Tiles 16x16 ===== */
 enum { T_GRASS = 0, T_DIRT = 4, T_STONE = 7, T_MOSS = 11, T_WATER = 13, T_WATER_N = 14, T_BRIDGE = 15,
        T_WTOP = 16, T_WFACE = 18, T_CORRUPT = 20, T_RUNE = 22, T_RUBBLEF = 23, T_LIT = 24,
-       T_ASH = 122, T_SPATH = 125, T_PADDY = 127, T_PADDY_N = 128, T_LIT2 = 129, NTILES = 129 + 98 };
+       T_ASH = 122, T_SPATH = 125, T_PADDY = 127, T_PADDY_N = 128, T_LIT2 = 129,
+       T_MUD = 227, T_SWAMP = 230, T_SWAMP_N = 231, NTILES = 232 };
 static uint8_t tiles[NTILES][256];
 static Img timg(int t) { Img im = {tiles[t], 16, 16}; return im; }
 
@@ -1262,6 +1324,24 @@ static void build_tiles(void) {
         for (int y = 0; y < 16; y++) for (int x = 0; x < 16; x++) ip(im, x, y, 1, 1, (uint8_t)(CY_WATER + (((x + 2 * y) >> 2) & 3)));
         for (int y = 2; y < 16; y += 5) for (int x = 1; x < 16; x += 4) { p(x, y, 1, 3, V1); p(x, y, 1, 1, V2); }
         if (v) { p(0,0,16,2,S0); p(0,2,16,1,INK); }
+    }
+    /* Pântano: lama e água estagnada com algas e nenúfares */
+    for (int v = 0; v < 3; v++) { Img I = timg(T_MUD + v), *im = &I;
+        p(0,0,16,16,S0);
+        for (int i = 0; i < 6; i++) { int x = rndi(13), y = rndi(14); p(x,y,3,2,D1); p(x+1,y,1,1,D2); }
+        for (int i = 0; i < 10; i++) p(rndi(16), rndi(16), 1, 1, v == 2 ? V1 : V0);
+        if (v == 1) for (int i = 0; i < 3; i++) { int x = 1 + rndi(13), y = 2 + rndi(11); p(x,y,1,3,V1); p(x,y,1,1,V2); }
+    }
+    for (int v = 0; v < 2; v++) { Img I = timg(T_SWAMP + v), *im = &I;
+        for (int y = 0; y < 16; y++) for (int x = 0; x < 16; x++) {
+            int b = BAYER[(y & 3) * 4 + (x & 3)];
+            uint8_t c = b < 6 ? V0 : D1;
+            if (((x + 2 * y) & 7) == 0) c = (uint8_t)(CY_WATER + (((x + y) >> 2) & 3));
+            ip(im, x, y, 1, 1, c);
+        }
+        for (int i = 0; i < 4; i++) p(rndi(15), rndi(15), 2, 1, V1);
+        if (!v && chance(50)) { int x = 3 + rndi(8), y = 4 + rndi(7); e((float)x + 2, (float)y + 1, 2.5f, 1.5f, V1); p(x + 1, y, 1, 1, V2); }
+        if (v) { p(0,0,16,2,S0); p(0,2,16,1,INK); for (int i = 0; i < 4; i++) p(rndi(15), 0, 2, 1, V1); }
     }
     /* Poças de luz: 7x7 tiles por grupo, em pontilhado; sobre pedra (fortaleza) e sobre cinza (aldeia) */
     for (int base2 = 0; base2 < 2; base2++)
@@ -1471,8 +1551,40 @@ static void build_aldeia(void) {
         else if (h % 100 == 95) { add_prop(x * 16 + 8, y * 16 + 13, SPR_RUBBLE, 0); mapA[y][x] |= A_NOPROP; }
     }
 }
-static uint8_t mapT0[MAP_H][MAP_W], mapA0[MAP_H][MAP_W], mapT1[MAP_H][MAP_W], mapA1[MAP_H][MAP_W];
-static Prop props0[1600], props1[1600]; static int nProps0, nProps1;
+static void build_pantano(void) {
+    map_reset(); seed = 4242;
+    for (int y = 0; y < MAP_H; y++) for (int x = 0; x < MAP_W; x++) {   /* lama e erva escura */
+        uint32_t h = hash2(x + 900, y * 3); int lama = ((x / 6 + y / 5 + (int)(h % 3)) % 4) != 0;
+        put(x, y, lama ? T_MUD + (int)(h % 7 < 4 ? 0 : h % 7 < 6 ? 1 : 2) : T_GRASS + (int)(h % 3), lama ? 0 : A_GRASS); zone[y][x] = 0; }
+    for (int k = 0; k < 22; k++) {   /* charcos de água estagnada (não se atravessam) */
+        int cx = 6 + rndi(84), cy = 6 + rndi(84), rx = 3 + rndi(6), ry = 2 + rndi(5);
+        if (iabs2(cx - 48) < 10 && cy > 40) continue;   /* deixa livre o caminho do início e o centro */
+        for (int y = cy - ry; y <= cy + ry; y++) for (int x = cx - rx; x <= cx + rx; x++) {
+            float dx = (x - cx) / (float)rx, dy = (y - cy) / (float)ry;
+            if (dx * dx + dy * dy <= 1.f && inb(x, y)) put(x, y, T_SWAMP, A_WATER | A_SOLID | A_NOPROP); } }
+    for (int y = 1; y < MAP_H; y++) for (int x = 0; x < MAP_W; x++)
+        if ((mapA[y][x] & A_WATER) && !(mapA[y-1][x] & A_WATER)) mapT[y][x] = T_SWAMP_N;
+    /* passadiços: do início ao centro e do centro aos cantos (sobre a água viram ponte) */
+    carve(48, 86, 48, 48); carve(48, 48, 14, 14); carve(48, 48, 82, 14); carve(48, 48, 14, 82); carve(48, 48, 82, 82); carve(20, 48, 76, 48);
+    for (int y = 44; y <= 52; y++) for (int x = 44; x <= 52; x++) if (mapA[y][x] & A_WATER) put(x, y, T_MUD, A_NOPROP);
+    /* bordo: salgueiros densos */
+    for (int y = 0; y < MAP_H; y++) for (int x = 0; x < MAP_W; x++)
+        if (x < 3 || y < 3 || x >= MAP_W - 3 || y >= MAP_H - 3) { mapA[y][x] |= A_SOLID | A_NOPROP;
+            if (((x + y) % 4 == 0) && (x % 3 == 0)) add_prop(x * 16 + 8, y * 16 + 15, SPR_SALGUEIRO, 0); }
+    /* salgueiros, juncos à beira da água e cogumelos */
+    for (int y = 5; y < MAP_H - 5; y++) for (int x = 5; x < MAP_W - 5; x++) {
+        if (mapA[y][x] & (A_SOLID | A_NOPROP | A_WATER)) continue;
+        uint32_t h = hash2(x * 5 + 11, y * 13 + 7);
+        int perto = 0; for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++) if (mapA[y+j][x+i] & A_WATER) perto = 1;
+        int ok = 1; for (int j = -2; j <= 2; j++) for (int i = -2; i <= 2; i++) if (mapA[y+j][x+i] & (A_SOLID | A_NOPROP | A_WATER)) ok = 0;
+        if (ok && h % 100 < 3) { mapA[y][x] |= A_SOLID; add_prop(x * 16 + 8, y * 16 + 15, SPR_SALGUEIRO, PF_SH_L);
+            for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++) mapA[y+j][x+i] |= A_NOPROP; }
+        else if (perto && h % 100 < 35) { add_prop(x * 16 + 8, y * 16 + 15, SPR_JUNCOS, 0); mapA[y][x] |= A_NOPROP; }
+        else if (h % 100 >= 98) { add_prop(x * 16 + 8, y * 16 + 14, SPR_COGUMELOS, 0); mapA[y][x] |= A_NOPROP; }
+    }
+}
+static uint8_t mapT0[MAP_H][MAP_W], mapA0[MAP_H][MAP_W], mapT1[MAP_H][MAP_W], mapA1[MAP_H][MAP_W], mapT2[MAP_H][MAP_W], mapA2[MAP_H][MAP_W];
+static Prop props0[1600], props1[1600], props2[1600]; static int nProps0, nProps1, nProps2;
 static void build_maps(void) {
     build_fortaleza(); sort_props();
     for (int y = 0; y < MAP_H; y++) for (int x = 0; x < MAP_W; x++) { mapT0[y][x] = mapT[y][x]; mapA0[y][x] = mapA[y][x]; }
@@ -1484,6 +1596,11 @@ static void build_maps(void) {
     for (int i = 0; i < nProps; i++) props1[i] = props[i];
     nProps1 = nProps;
     fprintf(stderr, "aldeia: %d adereços, %d luzes\n", nProps, nBraz);
+    build_pantano(); sort_props();
+    for (int y = 0; y < MAP_H; y++) for (int x = 0; x < MAP_W; x++) { mapT2[y][x] = mapT[y][x]; mapA2[y][x] = mapA[y][x]; }
+    for (int i = 0; i < nProps; i++) props2[i] = props[i];
+    nProps2 = nProps;
+    fprintf(stderr, "pântano: %d adereços\n", nProps);
 }
 
 /* ===== Fonte 5x7 ===== */
@@ -1555,11 +1672,13 @@ int main(void) {
     dump8("MAP0_A", &mapA0[0][0], MAP_W * MAP_H);
     dump8("MAP1_T", &mapT1[0][0], MAP_W * MAP_H);
     dump8("MAP1_A", &mapA1[0][0], MAP_W * MAP_H);
+    dump8("MAP2_T", &mapT2[0][0], MAP_W * MAP_H);
+    dump8("MAP2_A", &mapA2[0][0], MAP_W * MAP_H);
     printf("static const SprDesc SPR[%d] = {\n", SPR_COUNT);
     for (int i = 0; i < SPR_COUNT; i++) printf("{%u,%u,%u,%u,%u},\n", desc[i].w, desc[i].h, desc[i].ax, desc[i].ay, desc[i].off);
     printf("};\n");
     dump8("SPR_DATA", sprData, sprLen);
-    for (int m = 0; m < 2; m++) { const Prop *pp = m ? props1 : props0; int n = m ? nProps1 : nProps0;
+    for (int m = 0; m < 3; m++) { const Prop *pp = m == 2 ? props2 : m ? props1 : props0; int n = m == 2 ? nProps2 : m ? nProps1 : nProps0;
         printf("#define NPROPS%d %d\nstatic const Prop PROPS%d[%d] = {\n", m, n, m, n);
         for (int i = 0; i < n; i++) printf("{%u,%u,%u,%u},%s", pp[i].x, pp[i].y, pp[i].spr, pp[i].flags, (i + 1) % 8 ? "" : "\n");
         printf("};\n"); }

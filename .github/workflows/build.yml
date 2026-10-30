@@ -66,10 +66,14 @@ jobs:
           gcc -O2 -std=gnu99 -o gerar tools/gerar_assets.c -lm
           ./gerar > src/assets.h
           # converte as músicas (IMA ADPCM, 11025 Hz: fortaleza e título, aldeia, intro) e os efeitos (16 bits, mesma taxa)
-          ffmpeg -hide_banner -loglevel error -y -i musica/Arcade_Rush.mp3 -ac 1 -ar 11025 -f s16le fortaleza.raw
+          # a música da fase 1 é cortada em 90 s (com fade no fim do ciclo) para poupar espaço na ROM
+          ffmpeg -hide_banner -loglevel error -y -i musica/Arcade_Rush.mp3 -t 90 -af "afade=t=in:st=0:d=0.3,afade=t=out:st=87:d=3" -ac 1 -ar 11025 -f s16le fortaleza.raw
           ffmpeg -hide_banner -loglevel error -y -i musica/aldeia.mp3 -ac 1 -ar 11025 -f s16le aldeia.raw
           ffmpeg -hide_banner -loglevel error -y -i musica/intro.mp3 -ac 1 -ar 11025 -f s16le intro.raw
-          python3 tools/converter_musica.py 11025 FORTALEZA fortaleza.raw ALDEIA aldeia.raw INTRO intro.raw > src/musica.h
+          # pântano: ciclo perfeito de 32 compassos (128 batidas a 147 bpm), com 60 ms de transição na ligação
+          ffmpeg -hide_banner -loglevel error -y -i musica/pantano.mp3 -ac 1 -ar 11025 -f s16le pantano_inteira.raw
+          python3 tools/fazer_loop.py pantano_inteira.raw pantano.raw 11025 1.62503 53.8414 60
+          python3 tools/converter_musica.py 11025 FORTALEZA fortaleza.raw ALDEIA aldeia.raw INTRO intro.raw PANTANO pantano.raw > src/musica.h
           for n in hurt powerup attack teleport monster trovao fogo ossos porta impacto confirmar; do
             ffmpeg -hide_banner -loglevel error -y -i sons/$n.wav -ac 1 -ar 11025 -f s16le $n.raw
           done
