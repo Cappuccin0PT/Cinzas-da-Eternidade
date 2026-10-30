@@ -241,8 +241,9 @@ static void build_vignette(void) {
 }
 
 /* ===== Jogo ===== */
-enum { ST_TITLE, ST_PLAY, ST_LEVELUP, ST_PAUSE, ST_OVER, ST_WIN, ST_INTRO, ST_TRANSIT, ST_CHARSEL, ST_OPTIONS, ST_CREDITS, ST_BYE, ST_CINE };
-#define MENU_STATE(s) ((s) == ST_TITLE || (s) == ST_CHARSEL || (s) == ST_OPTIONS || (s) == ST_CREDITS || (s) == ST_BYE)
+enum { ST_TITLE, ST_PLAY, ST_LEVELUP, ST_PAUSE, ST_OVER, ST_WIN, ST_INTRO, ST_TRANSIT, ST_CHARSEL, ST_OPTIONS, ST_CREDITS, ST_BYE, ST_CINE, ST_BAU, ST_LOJA, ST_PLAT };
+static int platAtivo, voltaA = 1;   /* passagem de plataformas ativa; estado para onde voltam a pausa e o baú */
+#define MENU_STATE(s) ((s) == ST_TITLE || (s) == ST_CHARSEL || (s) == ST_OPTIONS || (s) == ST_CREDITS || (s) == ST_BYE || (s) == ST_LOJA)
 static int state;
 #define FP 8   /* posições em 1/256 de píxel */
 
@@ -350,6 +351,12 @@ static int bossIdx = -1, bossState, bossT, bossCycles, bossVx, bossVy, bossDone,
 static int portalOn, portalX, portalY, introT, transT, mapNameT, bannerT, mapSteps;
 static const char *bannerTxt = "";
 #define MAXG 160
+#define MAXOBJ 48
+typedef struct { int16_t x, y; uint8_t on, tipo; } Obj;   /* tipo 0 vaso, 1 baú (pago), 2 baú dourado (grátis) */
+static Obj objs[MAXOBJ];
+static void novo_obj(int x, int y, int tipo) {
+    for (int i = 0; i < MAXOBJ; i++) if (!objs[i].on) { objs[i] = (Obj){(int16_t)x, (int16_t)y, 1, (uint8_t)tipo}; return; }
+}
 typedef struct { int16_t x, y; uint8_t on, tier, pull; } Gem;
 static Gem gems[MAXG]; static int gemNext;
 #define MAXB 48
@@ -381,9 +388,32 @@ static void add_fx(int base, int n, int rate, int x, int y, int v) {
 static void add_part(int kind, int32_t x, int32_t y, int32_t vx, int32_t vy, int life, int c) {
     for (int i = 0; i < MAXPT; i++) if (!pt[i].on) { pt[i] = (Part){x, y, vx, vy, (int16_t)life, 1, (uint8_t)kind, (uint8_t)c}; return; }
 }
-static int hero_speed(void) { return 320 * (10 + lvl[U_BOTAS]) / 10; }
-static int cd_factor(void) { return 100 - 8 * lvl[U_FURIA]; }
-static int magnet(void) { return 36 + 16 * lvl[U_IMAN]; }
+/* ===== Economia (como no Megabonk e no Vampire Survivors) =====
+   Ouro: moedas dos inimigos e dos vasos. Baús normais custam ouro e ficam mais caros a cada um aberto;
+   baús dourados (dos bosses) são grátis e deixam escolher 1 de 3 itens. Os itens só valem nesta partida
+   e acumulam. No fim, o ouro vai para o cofre e compra melhorias permanentes na LOJA do título. */
+enum { I_ANEL, I_TREVO, I_PEDRA, I_AMPULHETA, I_PENA, I_ESCUDO, I_MACA, I_IMAN, I_LANTERNA, I_ESPINHOS, I_RELIQUIA, I_CHAVE, NITENS };
+static const char *IT_NOME[NITENS] = {"ANEL DE OURO", "TREVO", "PEDRA DE AMOLAR", "AMPULHETA", "PENA", "ESCUDO DE OSSO",
+                                      "MAÇÃ DOURADA", "ÍMAN DE FERRO", "LANTERNA", "COROA DE ESPINHOS", "RELÍQUIA", "CHAVE"};
+static const char *IT_DESC[NITENS] = {"+20% DE OURO", "MAIS SORTE: MOEDAS E BAÚS", "+10% DE DANO", "-6% DE TEMPO DE RECARGA", "+8% DE VELOCIDADE",
+                                      "-10% DE DANO RECEBIDO", "+15 DE VIDA MÁXIMA E CURA", "RECOLHE DE MAIS LONGE", "+10% DE EXPERIÊNCIA",
+                                      "QUEM TE TOCA SOFRE DANO", "RENASCES UMA VEZ", "10% DE BAÚS GRÁTIS"};
+static const uint8_t IT_MAX[NITENS] = {5, 5, 5, 5, 5, 5, 5, 3, 5, 5, 1, 5};
+enum { P_PODER, P_VIDA, P_VELOC, P_AMBICAO, P_RECOLHA, P_RENASCER, NPOWER };
+static const char *PW_NOME[NPOWER] = {"PODER", "VIDA", "VELOCIDADE", "AMBIÇÃO", "RECOLHA", "RENASCER"};
+static const char *PW_DESC[NPOWER] = {"+5% DE DANO", "+10 DE VIDA MÁXIMA", "+5% DE VELOCIDADE", "+10% DE OURO", "RECOLHE DE MAIS LONGE", "RENASCES UMA VEZ"};
+static const uint8_t PW_MAX[NPOWER] = {5, 5, 3, 5, 3, 1}, PW_ICONE[NPOWER] = {I_PEDRA, I_MACA, I_PENA, I_ANEL, I_IMAN, I_RELIQUIA};
+static const int PW_BASE[NPOWER] = {120, 100, 150, 100, 90, 600};
+static uint8_t itens[NITENS], power[NPOWER];
+static int ouro, cofre, abertos, renasce, ouroAcc, xpAcc, bauAviso, ouroGuardado;
+static int pw_preco(int k) { return PW_BASE[k] * (power[k] + 1); }
+static int preco_bau(void) { return 25 + 20 * abertos; }
+static void espalha_objs(void);
+static void tocar_objs(void);
+static void abre_bau(int dourado);
+static int hero_speed(void) { return 320 * (10 + lvl[U_BOTAS]) / 10 * (100 + 8 * itens[I_PENA] + 5 * power[P_VELOC]) / 100; }
+static int cd_factor(void) { int f = 100 - 8 * lvl[U_FURIA] - 6 * itens[I_AMPULHETA]; return f < 40 ? 40 : f; }
+static int magnet(void) { return 36 + 16 * lvl[U_IMAN] + 14 * itens[I_IMAN] + 12 * power[P_RECOLHA]; }
 
 static void new_game(void) {
     for (int i = 0; i < MAXE; i++) en[i].on = 0;
@@ -400,12 +430,15 @@ static void new_game(void) {
     for (int i = 0; i < MAXRAIO; i++) raios[i].t = 0;
     bh.on = 0;
     H.x = (48 * 16 + 8) << FP; H.y = (50 * 16 + 8) << FP; H.dir = DOWN; H.flip = 0; H.fx = 0; H.fy = 1;
-    H.maxhp = HERO_HP[heroi]; H.hp = H.maxhp; H.inv = 0; H.flash = 0; H.atkT = 0;
+    H.maxhp = HERO_HP[heroi] + 10 * power[P_VIDA]; H.hp = H.maxhp; H.inv = 0; H.flash = 0; H.atkT = 0;
+    ouro = 0; abertos = 0; ouroAcc = 0; xpAcc = 0; bauAviso = 0; for (int k = 0; k < NITENS; k++) itens[k] = 0; renasce = power[P_RENASCER];
+    platAtivo = 0; voltaA = ST_PLAY;
     level = 1; xp = 0; xpNext = 5; swingSide = 0; swordQueued = 0; kills = 0; steps = 0; shake = 0; cdLamina = 30; cdFaulha = 60; orbAng = 0;
     spawnT = 60; hordeT = 60 * 60; lightT = 60 * 50;
     load_map(0);
     H.x = MAPAS[0].sx << FP; H.y = MAPAS[0].sy << FP;
     bossIdx = -1; bossDone = 0; bossCycles = 0; bossTipo = 0; portalOn = 0; mapNameT = 240; bannerT = 0; mapSteps = 0;
+    espalha_objs();
     for (int i = 0; i < MAXEP; i++) ep[i].on = 0;
 }
 
@@ -440,6 +473,10 @@ static void spawn_ring(int type, int rmin, int rmax) {
         if (!(attr_at(px, py) & A_SOLID)) { if (nVivos >= ENEMY_CAP) reforca(type, px, py); else spawn_at(type, px, py); return; }
     }
 }
+static void larga(int x, int y, int tier) {   /* moeda, saco de moedas ou frango no chão */
+    Gem *g = &gems[gemNext]; gemNext = (gemNext + 1) % MAXG;
+    g->on = 1; g->x = (int16_t)x; g->y = (int16_t)(y - 2); g->pull = 0; g->tier = (uint8_t)tier;
+}
 static void kill_enemy(Enemy *e) {
     int ex = e->x >> FP, ey = e->y >> FP;
     e->on = 0; kills++;
@@ -451,14 +488,18 @@ static void kill_enemy(Enemy *e) {
             g->on = 1; g->tier = 2; g->pull = 0; g->x = (int16_t)(ex + (SINT[(k * 16 + 64) & 255] * 40 >> 8)); g->y = (int16_t)(ey - 10 + (SINT[k * 16] * 28 >> 8)); }
         shake = 12; lightning = 9; tocar_sfx(SFX_ID_POWERUP);
         bannerTxt = "O PORTAL ABRIU-SE NO CENTRO DO MAPA"; bannerT = 300;
+        novo_obj(ex, ey + 10, 2);   /* baú dourado grátis */
+        for (int k = 0; k < 10; k++) larga(ex - 30 + rndi(61), ey - 20 + rndi(41), k < 2 ? 4 : 3);
         return;
     }
     add_fx(SPR_PUFF, 4, 6, ex, ey + 2, 0);
     Gem *g = &gems[gemNext]; gemNext = (gemNext + 1) % MAXG;
     g->on = 1; g->x = (int16_t)ex; g->y = (int16_t)(ey - 2); g->pull = 0;
     g->tier = (uint8_t)(e->type == 1 ? (rndi(100) < 15 ? 2 : 1) : (rndi(100) < 4 ? 1 : 0));
+    if (rndi(100) < (e->type == 1 ? 14 : 3) + 2 * itens[I_TREVO]) larga(ex + 6, ey, e->type == 1 && rndi(4) == 0 ? 4 : 3);   /* moeda */
 }
 static void hurt_enemy(Enemy *e, int dmg, int kx, int ky) {
+    dmg = dmg * (100 + 10 * itens[I_PEDRA] + 5 * power[P_PODER]) / 100;
     e->hp = (int16_t)(e->hp - dmg); e->flash = e->type == 2 ? 2 : 6;   /* boss: flash curto para não piscar sem parar */
     int k = e->type == 2 ? 0 : e->type ? 1 : 3; e->kx = kx * k; e->ky = ky * k;
     if (faiscas < 4) { faiscas++; add_fx(SPR_SPARK, 3, 4, e->x >> FP, (e->y >> FP) - (e->type == 2 ? 28 : e->type ? 12 : 6), 0); }
@@ -557,8 +598,13 @@ static void start_boss(void) {
 }
 static void hero_hurt(int dmg) {
     if (H.inv) return;
+    dmg = dmg * (100 - 10 * itens[I_ESCUDO]) / 100; if (dmg < 1) dmg = 1;
     H.hp -= dmg; H.inv = 45; H.flash = 8; shake = 6; tocar_sfx(SFX_ID_HURT);
-    if (H.hp <= 0) { H.hp = 0; state = ST_OVER; }
+    if (H.hp <= 0) {
+        if (renasce > 0) { renasce--; H.hp = H.maxhp / 2; H.inv = 150; lightning = 9; shake = 10; tocar_sfx(SFX_ID_POWERUP);
+            bannerTxt = "RENASCESTE DAS CINZAS!"; bannerT = 180; }
+        else { H.hp = 0; state = ST_OVER; }
+    }
 }
 #define GC 32
 #define GW (MAP_W * TILE / GC)
@@ -611,7 +657,9 @@ static void update_enemies(void) {
         if (e->cdOrb) e->cdOrb--;
         if (e->cdHit) e->cdHit--;
         int r = E_R[e->type] + 6;
-        if (e->type != 1 && iabs(dx) < r && iabs(dy) < r && H.inv == 0) hero_hurt(E_DMG[e->type]);   /* o esqueleto só fere com a lâmina */
+        if (e->type != 1 && iabs(dx) < r && iabs(dy) < r && H.inv == 0) {   /* o esqueleto só fere com a lâmina */
+            if (itens[I_ESPINHOS]) hurt_enemy(e, 12 * itens[I_ESPINHOS], 0, 0);   /* coroa de espinhos */
+            hero_hurt(E_DMG[e->type]); }
         int c = ((e->y >> FP) / GC) * GW + (e->x >> FP) / GC;
         if (c >= 0 && c < GW * GW) { e->next = ghead[c]; ghead[c] = (int16_t)i; }
     }
@@ -1004,6 +1052,22 @@ static void update_bolts(void) {
 }
 
 /* ----- Cristais e níveis ----- */
+static int bauModo, bauN, bauEsc[3];   /* bauModo 1: escolher 1 de 3 (dourado); 0: mostrar o que saiu */
+static void da_item(int k) {
+    itens[k]++;
+    if (k == I_MACA) { H.maxhp += 15; H.hp += 15; if (H.hp > H.maxhp) H.hp = H.maxhp; }
+    if (k == I_RELIQUIA) renasce++;
+}
+static void abre_bau(int dourado) {
+    int pool[NITENS], n = 0;
+    for (int k = 0; k < NITENS; k++) if (itens[k] < IT_MAX[k]) pool[n++] = k;
+    bauModo = dourado; bauN = 0;
+    int quer = dourado ? 3 : (rndi(100) < 10 * itens[I_TREVO] ? 2 : 1);
+    while (n > 0 && bauN < quer) { int r = rndi(n); bauEsc[bauN++] = pool[r]; pool[r] = pool[--n]; }
+    if (!bauN) { ouro += 50; bannerTxt = "O BAÚ TINHA 50 DE OURO"; bannerT = 150; return; }
+    if (!dourado) for (int i = 0; i < bauN; i++) da_item(bauEsc[i]);
+    sel = 0; state = ST_BAU; tocar_sfx(SFX_ID_POWERUP);
+}
 static void open_levelup(void) {
     int pool[NUP], n = 0;
     for (int i = 0; i < NUP; i++) if (lvl[i] < UP_MAX[i] && upgrade_do_heroi(i)) pool[n++] = i;
@@ -1028,7 +1092,13 @@ static void update_gems(void) {
         if (d < mg) g->pull = 1;
         if (g->pull) { int sp = 4 + (g->pull > 20 ? 3 : g->pull / 7); if (g->pull < 255) g->pull++;
             if (d > 0) { g->x = (int16_t)(g->x + dx * sp / d); g->y = (int16_t)(g->y + dy * sp / d); } }
-        if (d < 8) { g->on = 0; xp += VAL[g->tier]; }
+        if (g->tier == 5 && !g->pull && d > 10) continue;   /* o frango não é puxado */
+        if (d < 8) { g->on = 0;
+            if (g->tier >= 3 && g->tier <= 4) {   /* ouro */
+                ouroAcc += (g->tier == 4 ? 6 : 1) * (100 + 20 * itens[I_ANEL] + 10 * power[P_AMBICAO]);
+                ouro += ouroAcc / 100; ouroAcc %= 100; }
+            else if (g->tier == 5) { H.hp += 25; if (H.hp > H.maxhp) H.hp = H.maxhp; }
+            else { xpAcc += VAL[g->tier] * (100 + 10 * itens[I_LANTERNA]); xp += xpAcc / 100; xpAcc %= 100; } }
     }
     if (xp >= xpNext && state == ST_PLAY) { xp -= xpNext; level++; xpNext = 1 + level * 4; open_levelup(); }
 }
@@ -1104,6 +1174,8 @@ static void step_play(void) {
     if (--hordeT <= 0) { hordeT = 60 * 60; int nh = ENEMY_CAP + 6 - nVivos; if (nh > 16) nh = 16;   /* horda menor quando já há muitos */
         for (int k = 0; k < nh; k++) { int a = k * 256 / (nh > 0 ? nh : 1);
         spawn_at(0, (H.x >> FP) + (SINT[(a + 64) & 255] * 170 >> 8), (H.y >> FP) + (SINT[a] * 130 >> 8)); } }
+    tocar_objs();
+    if (state != ST_PLAY) return;
     switch (heroi) { case HERO_NINJA: weapons(); break; case HERO_MAGO: magias(); break;
                      case HERO_CACADOR: armas_cacador(); break; default: armas_padre(); break; }
     update_zonas();
@@ -1126,6 +1198,40 @@ static void step_play(void) {
     /* pântano (nível final): sobrevive 5 minutos até ao amanhecer */
     if (mapa == 2 && mapSteps >= 60 * 300) state = ST_WIN;
 }
+static void espalha_objs(void) {   /* vasos e baús em sítios livres do mapa, longe do início */
+    for (int i = 0; i < MAXOBJ; i++) objs[i].on = 0;
+    int n = 0, tent = 0;
+    while (n < 36 && tent++ < 3000) {
+        int x = 6 * 16 + rndi((MAP_W - 12) * 16), y = 6 * 16 + rndi((MAP_H - 12) * 16);
+        if (attr_at(x, y) & (A_SOLID | A_WATER)) continue;
+        if (attr_at(x - 10, y) & A_SOLID || attr_at(x + 10, y) & A_SOLID) continue;
+        if (dist_approx(x - (H.x >> FP), y - (H.y >> FP)) < 100) continue;
+        novo_obj(x, y, n < 6 ? 1 : 0); n++;
+    }
+}
+static void tocar_objs(void) {   /* o herói parte vasos e abre baús ao passar por cima */
+    int hx = H.x >> FP, hy = H.y >> FP, perto = 0;
+    for (int i = 0; i < MAXOBJ; i++) { Obj *o = &objs[i]; if (!o->on) continue;
+        if (iabs(o->x - hx) > 12 || iabs(o->y - hy) > 10) continue;
+        if (o->tipo == 0) {   /* vaso: moedas, saco ou frango */
+            o->on = 0; add_fx(SPR_PUFF, 4, 5, o->x, o->y - 4, 0);
+            int r = rndi(100);
+            if (r < 55) for (int k = 0; k < 1 + rndi(3); k++) larga(o->x - 8 + rndi(17), o->y - 4 + rndi(9), 3);
+            else if (r < 70) larga(o->x, o->y, 4);
+            else if (r < 82) larga(o->x, o->y, 5);
+            continue;
+        }
+        perto = 1;
+        if (o->tipo == 2) { o->on = 0; abre_bau(1); return; }
+        int gratis = rndi(100) < 10 * itens[I_CHAVE];
+        if (gratis || ouro >= preco_bau()) {
+            if (!gratis) ouro -= preco_bau();
+            abertos++; o->tipo = 3; o->on = 0; add_fx(SPR_SPARK, 3, 4, o->x, o->y - 10, 0); abre_bau(0); return;
+        }
+        if (!bauAviso) { bauAviso = 1; tocar_sfx(SFX_ID_HURT); }
+    }
+    if (!perto) bauAviso = 0;
+}
 static void enter_map(int m) {
     for (int i = 0; i < MAXE; i++) en[i].on = 0;
     for (int i = 0; i < MAXG; i++) gems[i].on = 0;
@@ -1135,6 +1241,7 @@ static void enter_map(int m) {
     load_map(m);
     H.x = MAPAS[m].sx << FP; H.y = MAPAS[m].sy << FP; H.fx = 0; H.fy = -1; H.dir = UP; H.inv = 60;
     portalOn = 0; bossIdx = -1; bossDone = 0; bossCycles = 0; mapNameT = 240; bannerT = 0; mapSteps = 0; spawnT = 90; hordeT = 60 * 60;
+    espalha_objs();
     for (int i = 0; i < MAXEP; i++) ep[i].on = 0;
     for (int i = 0; i < MAXMET; i++) met[i].on = 0;
     for (int i = 0; i < MAXZ; i++) zonas[i].on = 0;
@@ -1323,17 +1430,168 @@ static void cine_draw(void) {
     }
     if ((cineT >> 5) & 1) text("START: SALTAR", 236, SCR_H - 10, G1, 1);
 }
+/* ===== Passagem de plataformas entre mapas (vista de lado, ao estilo do Zelda II) =====
+   A ou C saltam (salto mais alto se o botão ficar carregado), B golpeia em frente, baixo agacha
+   (com B, golpe baixo). Buracos tiram vida e devolvem ao último chão seguro. No fim há um baú
+   dourado e o portal para o mapa seguinte. */
+#define PW 128
+#define PH 14
+#define PT_TOPO 16      /* tiles do jogo: topo de pedra, tijolo, ponte de madeira (atravessa-se por baixo) */
+#define PT_TIJOLO 18
+#define PT_PONTE 15
+static uint8_t plv[PH][PW];
+static int platNext, pvx, pvy, pchao, pagach, patk, pcd, pface, psafeX, psafeY, platT, pfim;
+#define MAXPI 20
+static struct { int32_t x, y; int16_t hp, base; int8_t dir; uint8_t on, tipo, anim, flash; } pinim[MAXPI];   /* tipo 0 esqueleto, 1 morcego */
+#define MAXPM 48
+static struct { int16_t x, y; uint8_t on; } pmoe[MAXPM];
+static int plat_solido(int px, int py) {   /* píxel do mundo da passagem é sólido? */
+    if (px < 0 || px >= PW * 16) return 1;
+    if (py < 0 || py >= PH * 16) return 0;
+    uint8_t t = plv[py >> 4][px >> 4]; return t == PT_TOPO || t == PT_TIJOLO;
+}
+static int plat_ponte(int px, int py) { if (px < 0 || px >= PW * 16 || py < 0 || py >= PH * 16) return 0; return plv[py >> 4][px >> 4] == PT_PONTE; }
+static void plat_gerar(int seed0) {
+    for (int y = 0; y < PH; y++) for (int x = 0; x < PW; x++) plv[y][x] = 0;
+    for (int i = 0; i < MAXPI; i++) pinim[i].on = 0;
+    for (int i = 0; i < MAXPM; i++) pmoe[i].on = 0;
+    int h = 11, x = 0, ni = 0, nm = 0;
+    (void)seed0;
+    #define COLUNA(cx, top) do { plv[top][cx] = PT_TOPO; for (int yy = (top) + 1; yy < PH; yy++) plv[yy][cx] = PT_TIJOLO; } while (0)
+    #define MOEDA(mx, my) do { if (nm < MAXPM) { pmoe[nm].x = (int16_t)(mx); pmoe[nm].y = (int16_t)(my); pmoe[nm].on = 1; nm++; } } while (0)
+    #define INIMIGO(t, ix, iy) do { if (ni < MAXPI) { pinim[ni].on = 1; pinim[ni].tipo = (uint8_t)(t); pinim[ni].x = (ix) << FP; pinim[ni].y = (iy) << FP; \
+        pinim[ni].base = (int16_t)(iy); pinim[ni].dir = -1; pinim[ni].hp = (int16_t)((t) ? 12 : 36); pinim[ni].anim = (uint8_t)rndi(32); pinim[ni].flash = 0; ni++; } } while (0)
+    while (x < 8) { COLUNA(x, h); x++; }   /* início plano */
+    while (x < PW - 14) {
+        int tipo = rndi(100), len = 4 + rndi(5);
+        if (tipo < 30) {   /* buraco, com ponte se for largo */
+            int gap = 2 + rndi(3);
+            for (int k = 0; k < gap && x < PW - 14; k++, x++) {
+                if (gap >= 4 && k > 0 && k < gap - 1) plv[h - 2][x] = PT_PONTE;
+                MOEDA(x * 16 + 8, (h - (gap >= 4 ? 3 : 2)) * 16 + 4 - (k == gap / 2 ? 8 : 0)); }
+        } else if (tipo < 55) {   /* degrau */
+            int nh = rndi(2) ? h - 1 : h + 1 + rndi(2); if (nh < 7) nh = 7; if (nh > 12) nh = 12; h = nh;   /* sobe no máximo 1 tile, desce até 2 */
+            for (int k = 0; k < len && x < PW - 14; k++, x++) COLUNA(x, h);
+            if (rndi(100) < 60) INIMIGO(0, (x - len / 2) * 16, h * 16);
+        } else if (tipo < 72) {   /* pilar a saltar por cima */
+            for (int k = 0; k < len && x < PW - 14; k++, x++) { COLUNA(x, (k == len / 2) ? h - 2 : h); }
+        } else {   /* chão com plataforma no ar, moedas e um morcego */
+            for (int k = 0; k < len && x < PW - 14; k++, x++) { COLUNA(x, h); if (k > 0 && k < len - 1 && h - 4 > 2) { plv[h - 4][x] = PT_PONTE; MOEDA(x * 16 + 8, (h - 5) * 16 + 4); } }
+            INIMIGO(1, (x - 2) * 16, (h - 6) * 16);
+        }
+    }
+    h = 11; while (x < PW) { COLUNA(x, h); x++; }   /* fim plano: baú e portal */
+    pfim = (PW - 4) * 16;
+    #undef COLUNA
+    #undef MOEDA
+    #undef INIMIGO
+}
+static void plat_start(int next) {
+    platNext = next; platAtivo = 1; state = ST_PLAT; platT = 0;
+    plat_gerar(next);
+    H.x = (3 * 16) << FP; H.y = (11 * 16) << FP; pvx = pvy = 0; pchao = 1; pagach = 0; patk = 0; pcd = 0; pface = 1;
+    psafeX = H.x; psafeY = H.y; H.inv = 60;
+    for (int i = 0; i < MAXFX; i++) fx[i].on = 0;
+    for (int i = 0; i < MAXPT; i++) pt[i].on = 0;
+    for (int i = 0; i < MAXOBJ; i++) objs[i].on = 0;
+    novo_obj((PW - 9) * 16, 11 * 16, 2);   /* baú dourado no fim */
+    SOM_LER(som_musica) = musicaOn ? FAIXA_INTRO : FAIXA_NENHUMA;
+}
+static void plat_end(void) { platAtivo = 0; state = ST_PLAY; enter_map(platNext); }
+static void plat_step(void) {
+    platT++; steps++;
+    if (H.inv) H.inv--;
+    if (H.flash) H.flash--;
+    if (padPressed & SEGA_CTRL_START) { voltaA = ST_PLAT; state = ST_PAUSE; return; }
+    int esq = padNow & SEGA_CTRL_LEFT, dir = padNow & SEGA_CTRL_RIGHT;
+    pagach = pchao && (padNow & SEGA_CTRL_DOWN);
+    int vel = hero_speed() * 5 / 4;
+    if (pagach) pvx = 0; else pvx = esq ? -vel : dir ? vel : 0;
+    if (esq) pface = -1;
+    if (dir) pface = 1;
+    if (pchao && (padPressed & (SEGA_CTRL_A | SEGA_CTRL_C))) { pvy = -1460; pchao = 0; }
+    if (!pchao && pvy < -400 && !(padNow & (SEGA_CTRL_A | SEGA_CTRL_C))) pvy = -400;   /* salto curto se largar o botão */
+    pvy += 72; if (pvy > 1600) pvy = 1600;
+    /* horizontal */
+    int nx = H.x + pvx, px = nx >> FP, py = H.y >> FP, alt = pagach ? 16 : 26;
+    if (pvx && (plat_solido(px + (pvx > 0 ? 5 : -5), py - 2) || plat_solido(px + (pvx > 0 ? 5 : -5), py - alt + 2))) nx = H.x;
+    H.x = nx; px = H.x >> FP;
+    /* vertical */
+    int ny = H.y + pvy, oy = py; py = ny >> FP;
+    pchao = 0;
+    if (pvy >= 0) {
+        int topo = (py >> 4) << 4;
+        int pe = plat_solido(px - 4, py) || plat_solido(px + 4, py);
+        int ponte = !pe && (plat_ponte(px - 4, py) || plat_ponte(px + 4, py)) && oy <= topo;
+        if (pe || ponte) { ny = topo << FP; pvy = 0; pchao = 1; }
+    } else if (plat_solido(px - 4, py - alt) || plat_solido(px + 4, py - alt)) { ny = H.y; pvy = 0; }
+    H.y = ny;
+    if (pchao && !plat_ponte(px, (H.y >> FP)) && plat_solido(px - 6, (H.y >> FP) + 2) && plat_solido(px + 6, (H.y >> FP) + 2)) { psafeX = H.x; psafeY = H.y; }
+    if ((H.y >> FP) > PH * 16 + 40) {   /* caiu num buraco */
+        H.x = psafeX; H.y = psafeY; pvx = pvy = 0; int inv = H.inv; H.inv = 0; hero_hurt(15); if (H.inv < inv) H.inv = (uint8_t)inv;
+        if (state != ST_PLAT) return;
+    }
+    /* golpe */
+    if (pcd) pcd--;
+    if (patk) patk--;
+    if ((padPressed & SEGA_CTRL_B) && !pcd) {
+        patk = 12; pcd = 18; tocar_sfx(SFX_ID_ATTACK);
+        add_fx(SPR_SMEAR, 3, 3, (H.x >> FP) + pface * 18, (H.y >> FP) - (pagach ? 8 : 16), pface < 0 ? 2 : 0);
+        int dmg = (18 + 2 * level) * (100 + 10 * itens[I_PEDRA] + 5 * power[P_PODER]) / 100;
+        int x0 = (H.x >> FP) + (pface > 0 ? 2 : -30), y0 = (H.y >> FP) - (pagach ? 14 : 26), y1 = (H.y >> FP) - (pagach ? 0 : 8);
+        for (int i = 0; i < MAXPI; i++) { if (!pinim[i].on) continue;
+            int ex = pinim[i].x >> FP, ey = pinim[i].y >> FP, eh = pinim[i].tipo ? 10 : 24, ety = pinim[i].tipo ? ey - 5 : ey - eh;
+            if (ex + 8 < x0 || ex - 8 > x0 + 28 || ety > y1 || ety + eh < y0) continue;
+            pinim[i].hp = (int16_t)(pinim[i].hp - dmg); pinim[i].flash = 6; pinim[i].x += pface * (6 << FP);
+            add_fx(SPR_SPARK, 3, 3, ex, ety + eh / 2, 0);
+            if (pinim[i].hp <= 0) { pinim[i].on = 0; add_fx(SPR_PUFF, 4, 5, ex, ey - 4, 0); kills++;
+                if (rndi(100) < 60) { ouroAcc += (pinim[i].tipo ? 1 : 3) * (100 + 20 * itens[I_ANEL] + 10 * power[P_AMBICAO]); ouro += ouroAcc / 100; ouroAcc %= 100; } } }
+    }
+    /* inimigos */
+    int hx = H.x >> FP, hy = H.y >> FP;
+    for (int i = 0; i < MAXPI; i++) { if (!pinim[i].on) continue;
+        int ex = pinim[i].x >> FP, ey = pinim[i].y >> FP; pinim[i].anim++; if (pinim[i].flash) pinim[i].flash--;
+        if (iabs(ex - hx) > 360) continue;   /* só se mexem perto do ecrã */
+        if (pinim[i].tipo == 0) {   /* esqueleto: patrulha e vira nas paredes e nas beiras */
+            int fx_ = ex + pinim[i].dir * 8;
+            if (plat_solido(fx_, ey - 8) || !plat_solido(fx_, ey + 2)) pinim[i].dir = (int8_t)-pinim[i].dir;
+            if (iabs(ex - hx) < 120 && iabs(ey - hy) < 30) pinim[i].dir = (int8_t)(hx < ex ? -1 : 1);
+            if (!plat_solido(ex + pinim[i].dir * 8, ey + 2)) pinim[i].dir = (int8_t)-pinim[i].dir;
+            pinim[i].x += pinim[i].dir * 150;
+        } else {   /* morcego: voa em onda e aproxima-se */
+            int dx = hx - ex, dy = (hy - 18) - ey;
+            pinim[i].x += (dx > 0 ? 1 : -1) * (iabs(dx) < 160 ? 110 : 30);
+            pinim[i].y = (pinim[i].base + (SINT[(pinim[i].anim * 4) & 255] >> 4) + (iabs(dx) < 90 ? dy / 3 : 0)) << FP;
+        }
+        ex = pinim[i].x >> FP; ey = pinim[i].y >> FP;
+        int eh = pinim[i].tipo ? 10 : 24, ety = pinim[i].tipo ? ey - 5 : ey - eh;
+        if (iabs(ex - hx) < 11 && ety < hy - 2 && ety + eh > hy - (pagach ? 16 : 26) && !H.inv) {
+            if (itens[I_ESPINHOS]) pinim[i].hp = (int16_t)(pinim[i].hp - 12 * itens[I_ESPINHOS]);
+            hero_hurt(pinim[i].tipo ? 8 : 12); pvx = 0; H.x += (hx < ex ? -14 : 14) << FP; pvy = -500;
+            if (state != ST_PLAT) return;
+        }
+    }
+    /* moedas, baú e portal */
+    for (int i = 0; i < MAXPM; i++) if (pmoe[i].on && iabs(pmoe[i].x - hx) < 9 && iabs(pmoe[i].y - (hy - 12)) < 14) {
+        pmoe[i].on = 0; ouroAcc += 100 + 20 * itens[I_ANEL] + 10 * power[P_AMBICAO]; ouro += ouroAcc / 100; ouroAcc %= 100; }
+    for (int i = 0; i < MAXOBJ; i++) if (objs[i].on && objs[i].tipo == 2 && iabs(objs[i].x - hx) < 12 && iabs(objs[i].y - hy) < 12) {
+        objs[i].on = 0; voltaA = ST_PLAT; abre_bau(1); return; }
+    if (hx >= pfim) plat_end();
+    for (int i = 0; i < MAXFX; i++) if (fx[i].on && ++fx[i].t >= fx[i].n * fx[i].rate) fx[i].on = 0;
+    if (shake) shake--;
+}
 static void step(void) {
     switch (state) {
     case ST_CINE: cine_step(); padPressed = 0; return;
     case ST_TITLE:   /* menu principal: JOGAR, OPÇÕES, CRÉDITOS, SAIR */
         steps++; title_fx();
-        if (padPressed & SEGA_CTRL_UP) menuSel = (menuSel + 3) % 4;
-        if (padPressed & SEGA_CTRL_DOWN) menuSel = (menuSel + 1) % 4;
+        if (padPressed & SEGA_CTRL_UP) menuSel = (menuSel + 4) % 5;
+        if (padPressed & SEGA_CTRL_DOWN) menuSel = (menuSel + 1) % 5;
         if (padPressed & (BTN_OK | SEGA_CTRL_START)) {
             if (menuSel == 0) { state = ST_CHARSEL; charSel = heroi; }
-            else if (menuSel == 1) { state = ST_OPTIONS; optSel = 0; }
-            else if (menuSel == 2) state = ST_CREDITS;
+            else if (menuSel == 1) { state = ST_LOJA; optSel = 0; }
+            else if (menuSel == 2) { state = ST_OPTIONS; optSel = 0; }
+            else if (menuSel == 3) state = ST_CREDITS;
             else { state = ST_BYE; byeT = 0; }
         }
         break;
@@ -1375,13 +1633,33 @@ static void step(void) {
             if (xp >= xpNext) { xp -= xpNext; level++; xpNext = 1 + level * 4; open_levelup(); }
         }
         break;
-    case ST_PAUSE: if (padPressed & SEGA_CTRL_START) state = ST_PLAY; break;
+    case ST_PAUSE: if (padPressed & SEGA_CTRL_START) { state = voltaA; voltaA = ST_PLAY; } break;
+    case ST_PLAT: plat_step(); break;
+    case ST_BAU:
+        if (bauModo) {
+            if (padPressed & SEGA_CTRL_UP) sel = (sel + bauN - 1) % bauN;
+            if (padPressed & SEGA_CTRL_DOWN) sel = (sel + 1) % bauN;
+            if (padPressed & (BTN_OK | SEGA_CTRL_START)) { da_item(bauEsc[sel]); state = voltaA; voltaA = ST_PLAY; }
+        } else if (padPressed & (BTN_OK | SEGA_CTRL_START)) { state = voltaA; voltaA = ST_PLAY; }
+        break;
+    case ST_LOJA:
+        steps++; title_fx();
+        if (padPressed & SEGA_CTRL_UP) optSel = (optSel + NPOWER) % (NPOWER + 1);
+        if (padPressed & SEGA_CTRL_DOWN) optSel = (optSel + 1) % (NPOWER + 1);
+        if (padPressed & (SEGA_CTRL_A | SEGA_CTRL_C)) {
+            if (optSel == NPOWER) state = ST_TITLE;
+            else if (power[optSel] < PW_MAX[optSel] && cofre >= pw_preco(optSel)) { cofre -= pw_preco(optSel); power[optSel]++; tocar_sfx(SFX_ID_POWERUP); }
+            else tocar_sfx(SFX_ID_HURT);
+        }
+        if (padPressed & (SEGA_CTRL_B | SEGA_CTRL_START)) state = ST_TITLE;
+        break;
     case ST_INTRO: if (++introT >= 200) state = ST_PLAY; break;   /* apresentação do boss */
-    case ST_TRANSIT:   /* entrar no portal: clarão, troca de mapa */
-        if (++transT == 30) enter_map(mapa + 1 < NMAPAS ? mapa + 1 : 0);
+    case ST_TRANSIT:   /* entrar no portal: clarão e passagem de plataformas antes do mapa seguinte */
+        if (++transT == 30) { plat_start(mapa + 1 < NMAPAS ? mapa + 1 : 0); break; }
         if (transT >= 50) state = ST_PLAY;
         break;
     case ST_OVER: case ST_WIN:
+        if (ouro) { cofre += ouro; ouroGuardado = ouro; ouro = 0; }
         if (padPressed & SEGA_CTRL_START) { state = ST_TITLE; steps = 0; menuSel = 0;
             for (int i = 0; i < MAXPT; i++) pt[i].on = 0;
             SOM_LER(som_musica) = musicaOn ? 0u : FAIXA_NENHUMA; }
@@ -1461,7 +1739,16 @@ static void draw_world(void) {
             pset(ax + (SINT[(a + 64) & 255] * R >> 8), ay + (SINT[a] * R * 2 / 3 >> 8), (k & 1) ? E4 : BONE); }
     }
     for (int i = 0; i < MAXMET; i++) if (met[i].on && ((steps >> 2) & 1)) spr(SPR_TARGET, 0, met[i].x - ce, met[i].y - camY);   /* aviso no chão */
-    for (int i = 0; i < MAXG; i++) if (gems[i].on) spr(SPR_GEM + gems[i].tier, 0, gems[i].x - ce, gems[i].y - camY + ((steps >> 3) & 1));
+    for (int i = 0; i < MAXG; i++) if (gems[i].on) { Gem *g = &gems[i];
+        int id = g->tier < 3 ? SPR_GEM + g->tier : g->tier == 3 ? SPR_MOEDA + ((steps >> 3) & 1) : g->tier == 4 ? SPR_MOEDA + 2 : SPR_FRANGO;
+        spr(id, 0, g->x - ce, g->y - camY + ((steps >> 3) & 1)); }
+    for (int i = 0; i < MAXOBJ; i++) if (objs[i].on) {   /* vasos e baús */
+        int ox = objs[i].x - ce, oy = objs[i].y - camY; if (ox < -20 || ox > SCR_W + 20 || oy < -10 || oy > SCR_H + 30) continue;
+        spr(objs[i].tipo == 0 ? SPR_VASO : objs[i].tipo == 1 ? SPR_BAU : SPR_BAU + 2, 0, ox, oy);
+        if (objs[i].tipo == 1 && iabs(objs[i].x - (H.x >> FP)) < 70 && iabs(objs[i].y - (H.y >> FP)) < 50) {   /* preço por cima do baú */
+            char pb[8]; numstr(pb, preco_bau()); int w = text_w(pb, 1) + 12;
+            rect(ox - w / 2 + hud_dx, oy - 32, w, 9, INK); spr(SPR_MOEDA, 0, ox - w / 2 + 6, oy - 23);
+            text(pb, ox - w / 2 + 11, oy - 31, ouro >= preco_bau() ? E4 : G1, 1); } }
     for (int i = 0; i < MAXE; i++) if (en[i].on) {
         int sx = (en[i].x >> FP) - ce, sy = (en[i].y >> FP) - camY;
         if (sx < -40 || sx > SCR_W + 40 || sy < -8 || sy > SCR_H + 72) continue;
@@ -1558,6 +1845,8 @@ static void draw_hud(void) {
     text(t, 134 + (52 - text_w(t, 1)) / 2, 10, BONE, 1);
     spr(SPR_HUD_KILLS, 0, 252 + dx, 4);
     numstr(t, kills); text(t, 252 + 58 - text_w(t, 1), 10, BONE, 1);
+    rect(262 + dx, 23, 54, 11, INK); rect(262 + dx, 23, 54, 1, C0); rect(262 + dx, 33, 54, 1, C0);   /* ouro */
+    spr(SPR_MOEDA + ((steps >> 4) & 1), 0, 270 + dx, 32); numstr(t, ouro); text(t, 252 + 58 - text_w(t, 1), 25, E4, 1);
     if (bossIdx >= 0 && state == ST_PLAY) {   /* barra do boss, em baixo ao centro */
         spr(SPR_HUD_BOSS, 0, 48 + dx, 190);
         text(BOSS_NOME, 48 + 67 + (94 - text_w(BOSS_NOME, 1)) / 2, 194, BONE, 1);
@@ -1607,8 +1896,28 @@ static void draw_screens(void) {
             text(ds, 44, y + 14, G2, 1);
         }
         if (!nChoice) text_c("TUDO NO MÁXIMO: +20 DE VIDA", 100, BONE, 1);
-    } else if (state == ST_PAUSE) {
-        panel(100, 90, 120, 40); text_c("PAUSA", 100, E4, 2); text_c("START PARA VOLTAR", 118, G2, 1);
+    } else if (state == ST_BAU) {
+        panel(28, 40, 264, 150);
+        text_c(bauModo ? "BAÚ DOURADO!" : "ABRISTE UM BAÚ!", 50, E4, 1);
+        text_c(bauModo ? "ESCOLHE UM ITEM" : "ENCONTRASTE:", 64, G2, 1);
+        for (int i = 0; i < bauN; i++) {
+            int y = 80 + i * 34, k = bauEsc[i], ss = bauModo && i == sel;
+            if (ss) { rect(36 + hud_dx, y - 3, 248, 30, D2); rect(36 + hud_dx, y - 3, 248, 1, E3); rect(36 + hud_dx, y + 26, 248, 1, E3); }
+            spr(SPR_ITEM + k, 0, 42, y + 2);
+            int n = 0; const char *a = IT_NOME[k]; while (*a) b[n++] = *a++;
+            int nv = itens[k] + (bauModo ? 1 : 0); if (nv > 1) { b[n++] = ' '; b[n++] = 'X'; numstr(t, nv); for (int j = 0; t[j]; j++) b[n++] = t[j]; }
+            b[n] = 0; text(b, 64, y + 2, ss || !bauModo ? E4 : BONE, 1);
+            text(IT_DESC[k], 64, y + 14, G2, 1);
+        }
+        text_c("A PARA CONTINUAR", 176, G1, 1);
+    } else if (state == ST_PAUSE) {   /* pausa: itens desta partida */
+        panel(40, 50, 240, 120); text_c("PAUSA", 58, E4, 2);
+        int n = 0;
+        for (int k = 0; k < NITENS; k++) if (itens[k]) {
+            int x = 52 + (n % 6) * 36, y = 84 + (n / 6) * 26;
+            spr(SPR_ITEM + k, 0, x, y); numstr(t, itens[k]); text(t, x + 18, y + 8, BONE, 1); n++; }
+        if (!n) text_c("AINDA NÃO TENS ITENS", 100, G2, 1);
+        text_c("START PARA VOLTAR", 150, G2, 1);
     } else if (state == ST_OVER || state == ST_WIN) {
         panel(50, 60, 220, 100);
         text_c(state == ST_WIN ? "AMANHECEU!" : "A CINZA VENCEU", 72, state == ST_WIN ? E4 : RED, 2);
@@ -1618,7 +1927,9 @@ static void draw_screens(void) {
         i = 0; a = "NÍVEL "; while (*a) b[i++] = *a++; numstr(t, level); for (int j = 0; t[j]; j++) b[i++] = t[j];
         a = "  ABATES "; while (*a) b[i++] = *a++; numstr(t, kills); for (int j = 0; t[j]; j++) b[i++] = t[j]; b[i] = 0;
         text_c(b, 114, BONE, 1);
-        if ((steps >> 5) & 1 || state == ST_OVER) text_c("PRIME START", 138, E4, 1);
+        i = 0; a = "OURO GUARDADO NO COFRE: "; while (*a) b[i++] = *a++; numstr(t, ouroGuardado); for (int j = 0; t[j]; j++) b[i++] = t[j]; b[i] = 0;
+        text_c(b, 126, E3, 1);
+        if ((steps >> 5) & 1 || state == ST_OVER) text_c("PRIME START", 142, E4, 1);
     }
 }
 /* ===== Ecrã de título ===== */
@@ -1672,8 +1983,8 @@ static void draw_title(void) {
     draw_logo(76, 2, 0);
     { int t = steps % 90; if (t < 12) spr(SPR_SPARK + t / 4, 0, 76 + 83, 2 + 97); }   /* estrela do logótipo a brilhar */
     if (state == ST_TITLE) {
-        static const char *OP[4] = {"JOGAR", "OPÇÕES", "CRÉDITOS", "SAIR"};
-        for (int i = 0; i < 4; i++) menu_item(OP[i], 128 + i * 15, i == menuSel, 96);
+        static const char *OP[5] = {"JOGAR", "LOJA", "OPÇÕES", "CRÉDITOS", "SAIR"};
+        for (int i = 0; i < 5; i++) menu_item(OP[i], 126 + i * 14, i == menuSel, 96);
         text("CRIADO POR CAPPUCCIN0PT", 8, 210, G2, 1);
         {   /* diagnóstico do comando: valores brutos das portas 1 e 2 em hexadecimal */
             static const char HX[] = "0123456789ABCDEF"; char d[40] = "P1 0000 P2 0000 68K 0000 PT 0000";
@@ -1705,6 +2016,21 @@ static void draw_title(void) {
         menu_item(musicaOn ? "MÚSICA: LIGADA" : "MÚSICA: DESLIGADA", 162, optSel == 1, 196);
         menu_item("VOLTAR", 178, optSel == 2, 196);
         text_c("A OU ESQ/DIR: MUDAR  B: VOLTAR", 194, G1, 1);
+    } else if (state == ST_LOJA) {   /* melhorias permanentes compradas com o ouro do cofre */
+        panel(24, 118, 272, 100);
+        char b[40], t[12]; int k = 0; const char *a = "LOJA  COFRE: "; while (*a) b[k++] = *a++; numstr(t, cofre); for (int j = 0; t[j]; j++) b[k++] = t[j]; b[k] = 0;
+        text_c(b, 122, E3, 1);
+        for (int i = 0; i <= NPOWER; i++) {
+            int y = 134 + i * 11, ss = i == optSel;
+            if (ss) { rect(28, y - 2, 264, 11, E0); rect(28, y - 2, 264, 1, E3); }
+            if (i == NPOWER) { text_c("VOLTAR", y, ss ? E4 : G2, 1); break; }
+            k = 0; a = PW_NOME[i]; while (*a) b[k++] = *a++; b[k] = 0;
+            text(b, 34, y, ss ? E4 : BONE, 1);
+            for (int j = 0; j < PW_MAX[i]; j++) rect(96 + j * 7, y + 1, 5, 5, j < power[i] ? E3 : D2);   /* níveis comprados */
+            if (power[i] < PW_MAX[i]) { numstr(t, pw_preco(i)); text(t, 250, y, cofre >= pw_preco(i) ? E4 : G1, 1); }
+            else text("MÁX", 250, y, G2, 1);
+            if (ss) text(PW_DESC[i], 136, y, G2, 1);
+        }
     } else if (state == ST_CREDITS) {
         panel(36, 122, 248, 92);
         text_c("CINZAS DA ETERNIDADE", 128, E3, 1);
@@ -1718,9 +2044,48 @@ static void draw_title(void) {
         text_c("OBRIGADO POR JOGARES", 166, BONE, 1);
     }
 }
+static void plat_draw(void) {
+    int cx = (H.x >> FP) - 140; if (cx < 0) cx = 0; if (cx > PW * 16 - SCR_W) cx = PW * 16 - SCR_W; cx &= ~1;
+    camX = cx; camY = 0; hud_dx = 0;
+    /* céu das cinzas com paralaxe; em baixo, escuridão */
+    int o = ((cx >> 2) % 320) >> 1;
+    for (int y = 0; y < TSKY_H; y++) {
+        const uint16_t *src = (const uint16_t *)(TSKY + y * SCR_W); volatile uint16_t *dst = FBW + y * LINEW;
+        int n1 = LINEW - o; for (int i = 0; i < n1; i++) dst[i] = src[o + i]; for (int i = 0; i < o; i++) dst[n1 + i] = src[i];
+    }
+    { volatile uint32_t *d = (volatile uint32_t *)(FB8 + TSKY_H * SCR_W); for (int i = 0; i < (SCR_H - TSKY_H) * SCR_W / 4; i++) d[i] = (i / 80) < 20 ? 0x02020202u : 0x01010101u; }
+    for (int x = 0; x < SCR_W; x += 2) { int k = (x + cx / 2) % 96; int hh = k < 8 ? 40 : k < 12 ? 70 : 0; if (hh) rect(x, TSKY_H - hh, 2, hh + 20, k < 9 ? D1 : INK); }   /* ruínas ao longe */
+    /* tiles da passagem (opacos) */
+    int tx0 = cx >> 4;
+    for (int ty = 0; ty < PH; ty++) for (int tx = tx0; tx <= tx0 + 20 && tx < PW; tx++) {
+        uint8_t t = plv[ty][tx]; if (!t) continue;
+        int sx = tx * 16 - cx, sy = ty * 16;
+        for (int r = 0; r < 16; r++) {
+            const uint16_t *s = tilesRam + t * 128 + r * 8; volatile uint16_t *d = FBW + (sy + r) * LINEW;
+            for (int i = 0; i < 8; i++) { int xx = sx + i * 2; if (xx >= 0 && xx < SCR_W) d[xx >> 1] = s[i]; }
+        }
+    }
+    for (int i = 0; i < MAXPM; i++) if (pmoe[i].on) spr(SPR_MOEDA + ((steps >> 3) & 1), 0, pmoe[i].x - cx, pmoe[i].y - ((steps >> 4) & 1));
+    for (int i = 0; i < MAXOBJ; i++) if (objs[i].on) spr(SPR_BAU + 2, 0, objs[i].x - cx, objs[i].y);
+    spr(SPR_PORTAL + ((steps >> 3) & 3), 0, pfim + 24 - cx, 11 * 16);
+    for (int i = 0; i < MAXPI; i++) if (pinim[i].on) {
+        int ex = (pinim[i].x >> FP) - cx, ey = pinim[i].y >> FP;
+        if (pinim[i].tipo == 0) spr(SPR_HUSK + ((pinim[i].anim >> 4) & 1), (pinim[i].flash ? 4 : 0) | (pinim[i].dir < 0 ? 2 : 0), ex, ey);
+        else spr(SPR_MORCEGO + ((pinim[i].anim >> 3) & 1), 0, ex, ey);
+    }
+    {   /* herói de lado: parado, a correr, a saltar, agachado, a golpear */
+        int k = patk ? 7 : !pchao ? 8 : pagach ? 8 : pvx ? 2 + ((platT >> 3) & 3) : ((platT >> 5) & 1);
+        int base = HERO_SPR[heroi] + SIDE * 9;
+        if (!(H.inv && (H.inv & 4))) spr(base + k, (H.flash ? 4 : 0) | (pface < 0 ? 2 : 0), (H.x >> FP) - cx, (H.y >> FP) + (pagach ? 4 : 0));
+    }
+    for (int i = 0; i < MAXFX; i++) if (fx[i].on) spr(fx[i].base + fx[i].t / fx[i].rate, fx[i].v, fx[i].x - cx, fx[i].y);
+    if (platT < 200) { text_c("PASSAGEM DAS CINZAS", 60, E3, 2); text_c("CHEGA AO PORTAL NO FIM DO CAMINHO", 84, BONE, 1);
+        text_c("A: SALTAR   B: GOLPEAR   BAIXO: AGACHAR", 98, G2, 1); }
+}
 static void draw(void) {
     if (state == ST_CINE) { cine_draw(); return; }
     if (MENU_STATE(state)) { draw_title(); return; }
+    if (platAtivo) { plat_draw(); draw_hud(); draw_screens(); return; }
     draw_world();
     if (state != ST_TITLE) draw_hud();
     draw_screens();
@@ -1738,6 +2103,13 @@ static void setup_linetable(void) {
 void pv_cheat(void) { level = 14; xp = xpNext - 1; lvl[U_LAMINA] = 6; lvl[U_BRASAS] = 5; lvl[U_FAULHA] = 5; H.maxhp = H.hp = 999; }
 void pv_magias(int n) { lvl[U_FOGO] = lvl[U_MISSEIS] = lvl[U_BURACO] = lvl[U_RAIO] = (uint8_t)n; H.maxhp = H.hp = 999; }
 void pv_heroi(int h) { heroi = h; }
+void pv_plat(void) { plat_start(1); }
+void pv_plat_fim(void) { if (platAtivo && state == ST_PLAT) plat_end(); }
+int pv_platx(void) { return platAtivo ? (H.x >> FP) : -1; }
+int pv_saltar(void) { int x = H.x >> FP, y = H.y >> FP; return plat_solido(x + 14, y - 8) || plat_solido(x + 14, y - 20) || (!plat_solido(x + 12, y + 2) && !plat_ponte(x + 12, y + 2)); }
+void pv_ouro(int o) { ouro = o; cofre = o; }
+void pv_vai_bau(void) { for (int i = 0; i < MAXOBJ; i++) if (objs[i].on && objs[i].tipo == 1) { H.x = objs[i].x << FP; H.y = (objs[i].y + 30) << FP; return; } }
+void pv_bau_dourado(void) { abre_bau(1); }
 void pv_imortal(void) { H.maxhp = H.hp = 30000; }
 void pv_ir_mapa(int m) { enter_map(m); mapa = m; }
 void pv_tempo(int sg) { mapSteps = sg * 60; }

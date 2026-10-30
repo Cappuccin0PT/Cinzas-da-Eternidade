@@ -1130,6 +1130,48 @@ static void draw_boss2(Img *im, int f) {
     p(41, cy + 5, 3, 2, E3); p(50, cy + 5, 3, 2, E3); p(46, cy - 8, 2, 2, E4);
     if (warn) for (int i = 0; i < 10; i++) p(40 + rndi(15), cy - 9 + rndi(18), 1, 1, (i & 1) ? V2 : BONE);
 }
+/* ===== Economia: ouro, comida, vasos, baús e ícones dos itens ===== */
+static void draw_moeda(Img *im, int f) {   /* 10x10 */
+    if (f == 2) { e(5,6,4.5f,3.5f,S1); e(5,6,3.5f,2.5f,S2); p(3,1,5,2,S1); p(4,0,3,1,E1); p(4,5,3,2,E3); p(5,5,1,1,E4); return; }   /* saco */
+    if (f == 0) { e(5,5,4,4,E3); e(5,5,2.5f,2.5f,E4); p(4,3,1,4,E3); p(3,3,1,1,BONE); }
+    else { e(5,5,1.8f,4,E3); p(5,2,1,6,E4); }
+}
+static void draw_frango(Img *im) { e(7,6,5,3.5f,S1); e(6,5,3.5f,2.5f,E3); p(11,3,2,5,BONE); p(12,2,2,2,BONE); p(12,7,2,2,BONE); }   /* 14x10 */
+static void draw_vaso(Img *im) {   /* 16x16 */
+    e(8,10,6,5.5f,E1); e(7,9,4,3.5f,E2); p(5,2,6,3,E1); p(4,1,8,2,S0); p(5,1,6,1,S1);
+    for (int x = 3; x < 13; x += 3) p(x, 10, 2, 1, E3); p(6,6,1,1,E3);
+}
+static void draw_bau(Img *im, int f) {   /* 24x20: 0 fechado, 1 aberto, 2 dourado */
+    uint8_t c0 = f == 2 ? E3 : S1, c1 = f == 2 ? E4 : S2, aro = f == 2 ? BONE : G1;
+    p(2,8,20,11,c0); p(2,8,20,1,c1); p(2,8,1,11,c1); p(21,8,1,11,S0);
+    for (int x = 2; x < 22; x += 6) p(x, 8, 2, 11, aro);
+    p(2,17,20,2,S0);
+    if (f == 1) { p(2,3,20,5,c0); p(2,3,20,1,c1); p(4,7,16,2,INK); for (int i = 0; i < 6; i++) p(5 + i * 3, 4 + (i & 1), 1, 1, E4); }
+    else { e(12,7,10,4,c0); e(12,6,9,3,c1); p(2,7,20,2,aro); p(10,9,4,5,aro); p(11,11,2,2,INK); }
+    if (f == 2) for (int i = 0; i < 6; i++) p(1 + rndi(22), rndi(6), 1, 1, BONE);
+}
+static void draw_item(Img *im, int k) {   /* ícones 16x16 */
+    switch (k) {
+    case 0: e(8,9,6,6,E3); e(8,9,3.5f,3.5f,0); p(7,1,3,3,M3); p(8,1,1,1,BONE); p(4,8,1,2,E4); break;   /* anel de ouro */
+    case 1: for (int a = 0; a < 4; a++) { int cx = a == 0 ? 8 : a == 1 ? 12 : a == 2 ? 8 : 4, cy = a == 0 ? 4 : a == 1 ? 8 : a == 2 ? 12 : 8; e((float)cx, (float)cy, 3.5f, 3.5f, V1); }
+            p(7,7,3,3,V2); p(8,10,1,5,V0); break;   /* trevo */
+    case 2: e(8,10,6,4,G1); e(7,9,4,2.5f,G2); p(3,2,1,6,BONE); p(4,3,1,1,E4); p(12,2,1,3,E4); break;   /* pedra de amolar */
+    case 3: p(3,1,10,2,S1); p(3,13,10,2,S1); for (int y = 3; y < 13; y++) { int w = 1 + iabs2(y - 8) * 3 / 5; p(8 - w, y, 2 * w, 1, M2); } p(7,4,2,2,E3); p(6,10,4,3,E3); break;   /* ampulheta */
+    case 4: for (int i = 0; i < 12; i++) { p(3 + i, 13 - i, 1, 1, G1); p(4 + i, 13 - i - (i > 2), 2, 2, BONE); } break;   /* pena */
+    case 5: e(8,8,6,7,BONE); e(8,7,5,5,G2); e(8,7,2.5f,2.5f,BONE); p(7,7,1,1,INK); p(9,7,1,1,INK); p(8,9,1,1,INK); break;   /* escudo de osso */
+    case 6: e(8,10,5.5f,5,E3); e(7,9,3,3,E4); p(8,2,1,4,S0); p(9,2,3,2,V1); break;   /* maçã dourada */
+    case 7: for (int y = 2; y < 14; y++) { p(3, y, 3, 1, E2); p(10, y, 3, 1, E2); } e(8,13,5,2.5f,E2); e(8,13,2,1,0); p(3,2,3,2,G2); p(10,2,3,2,G2); break;   /* íman */
+    case 8: p(5,4,6,9,S1); p(6,5,4,7,E4); p(7,7,2,3,BONE); p(6,2,4,2,S0); p(7,0,2,2,G1); p(4,13,8,2,S0); break;   /* lanterna */
+    case 9: e(8,8,6,6,V0); e(8,8,3.5f,3.5f,0); for (int a = 0; a < 8; a++) { int x = 8 + (int)(__builtin_cosf(a * .785f) * 7), y = 8 + (int)(__builtin_sinf(a * .785f) * 7); p(x, y, 1, 1, BONE); } break;   /* espinhos */
+    case 10: p(4,2,8,3,E3); e(8,5,4,2.5f,E3); p(7,7,2,5,E3); p(5,12,6,2,E3); p(7,3,2,2,E2); p(5,2,1,1,E4); break;   /* relíquia */
+    default: e(5,5,3.5f,3.5f,E3); e(5,5,1.5f,1.5f,0); p(8,5,7,2,E3); p(12,7,1,3,E3); p(14,7,1,2,E3); p(4,3,1,1,E4); break;   /* chave */
+    }
+}
+static void draw_morcego(Img *im, int f) {   /* 18x12 */
+    e(9,6,3,3,C0); e(9,5,2,2,D1); p(7,2,1,2,C0); p(11,2,1,2,C0); p(8,5,1,1,RED); p(10,5,1,1,RED); p(8,8,1,1,BONE); p(10,8,1,1,BONE);
+    for (int i = 0; i < 6; i++) { int y = f ? 2 + i / 2 : 8 - i / 2;
+        p(6 - i, y, 1, 3, C0); p(12 + i, y, 1, 3, C0); if (i & 1) { p(6 - i, y + 3, 1, 1, D1); p(12 + i, y + 3, 1, 1, D1); } }
+}
 static void draw_orbe(Img *im, int f) { e(4,4,3.5f,3.5f,V1); e(4,4,2.2f,2.2f,V2); p(3,3,2,2,f ? BONE : V2); }
 static void rot90(const uint8_t *src, uint8_t *dst, int n) {   /* rotação de 90° no sentido dos ponteiros */
     for (int y = 0; y < n; y++) for (int x = 0; x < n; x++) dst[x * n + (n - 1 - y)] = src[y * n + x];
@@ -1176,6 +1218,12 @@ static void build_sprites(void) {
     for (int f = 0; f < 3; f++) { Img im = blank(64, 64); draw_boss(&im, f); outline(&im); add_sprite_full(SPR_BOSS + f, work, 64, 64, 32, 62); }
     for (int f = 0; f < 3; f++) { Img im = blank(64, 64); draw_boss2(&im, f); outline(&im); add_sprite_full(SPR_BOSS2 + f, work, 64, 64, 32, 60); }
     for (int f = 0; f < 2; f++) { Img im = blank(8, 8); draw_orbe(&im, f); outline(&im); add_sprite(SPR_ORBE + f, work, 8, 8, 4, 4); }
+    for (int f = 0; f < 3; f++) { Img im = blank(10, 10); draw_moeda(&im, f); outline(&im); add_sprite(SPR_MOEDA + f, work, 10, 10, 5, 8); }
+    { Img im = blank(14, 10); draw_frango(&im); outline(&im); add_sprite(SPR_FRANGO, work, 14, 10, 7, 8); }
+    { Img im = blank(16, 16); draw_vaso(&im); outline(&im); add_sprite(SPR_VASO, work, 16, 16, 8, 15); }
+    for (int f = 0; f < 3; f++) { Img im = blank(24, 20); draw_bau(&im, f); outline(&im); add_sprite(SPR_BAU + f, work, 24, 20, 12, 19); }
+    for (int k = 0; k < 12; k++) { Img im = blank(16, 16); draw_item(&im, k); outline(&im); add_sprite(SPR_ITEM + k, work, 16, 16, 0, 0); }
+    for (int f = 0; f < 2; f++) { Img im = blank(18, 12); draw_morcego(&im, f); outline(&im); add_sprite(SPR_MORCEGO + f, work, 18, 12, 9, 6); }
     { Img im = blank(48, 64); draw_salgueiro(&im); outline(&im); add_sprite(SPR_SALGUEIRO, work, 48, 64, 24, 62); }
     { Img im = blank(16, 24); draw_juncos(&im); outline(&im); add_sprite(SPR_JUNCOS, work, 16, 24, 8, 23); }
     { Img im = blank(16, 16); draw_cogumelos(&im); outline(&im); add_sprite(SPR_COGUMELOS, work, 16, 16, 8, 15); }

@@ -72,6 +72,30 @@ As molduras são sprites gerados em `tools/gerar_assets.c`; os valores são dese
 
 **Desempenho:** no máximo 52 inimigos ao mesmo tempo (60 com hordas e invocações dos bosses); acima disso, os novos inimigos substituem os rastejantes mais afastados por esqueletos, para a dificuldade continuar a subir sem encher o ecrã. Cada passo cria no máximo 4 faíscas de impacto, e as poças de água benta são desenhadas em pontilhado leve.
 
+## Passagem de plataformas (entre mapas)
+
+Depois de entrar no portal de um boss, antes do mapa seguinte, há uma passagem vista de lado, ao estilo das partes de ação do Zelda II:
+
+| Comando | Ação |
+| --- | --- |
+| Esquerda / direita | Andar |
+| A ou C | Saltar (mais alto se o botão ficar carregado) |
+| Baixo | Agachar |
+| B | Golpear em frente (agachado: golpe baixo) |
+| START | Pausa |
+
+A passagem é gerada de novo a cada vez (degraus, buracos, pontes de madeira que se atravessam por baixo, pilares, plataformas no ar), com esqueletos que patrulham, morcegos que voam em onda e moedas pelo caminho. Cair num buraco tira 15 de vida e devolve ao último chão seguro. No fim há um baú dourado (escolhe 1 de 3 itens) e o portal para o mapa seguinte. O gerador garante que todos os trechos se passam: os degraus sobem no máximo um tile e os buracos de quatro tiles têm sempre ponte.
+
+## Economia: ouro, baús, itens e loja
+
+Inspirada no Megabonk e no Vampire Survivors:
+
+- **Ouro:** os rastejantes largam moedas às vezes, os esqueletos mais vezes; os vasos espalhados pelo mapa partem-se quando passas por cima e dão moedas, sacos de moedas ou frango (cura 25). Os bosses largam 10 moedas.
+- **Baús normais:** 6 por mapa. Custam ouro (o preço aparece por cima quando estás perto) e ficam mais caros a cada um que abres: 25, 45, 65… Dão um item ao acaso (às vezes dois, com o Trevo).
+- **Baús dourados:** largados pelos bosses, são grátis e deixam escolher 1 de 3 itens.
+- **Itens** (só valem nesta partida, acumulam até 5): Anel de Ouro (+20% de ouro), Trevo (sorte), Pedra de Amolar (+10% de dano), Ampulheta (-6% de recarga), Pena (+8% de velocidade), Escudo de Osso (-10% de dano recebido), Maçã Dourada (+15 de vida máxima), Íman de Ferro (recolha), Lanterna (+10% de experiência), Coroa de Espinhos (fere quem te toca), Relíquia (renasces uma vez) e Chave (baús grátis). A PAUSA mostra os itens que tens.
+- **Loja** (no título): no fim de cada partida o ouro vai para o cofre e compra melhorias permanentes — Poder, Vida, Velocidade, Ambição, Recolha e Renascer. Por agora o cofre e as melhorias ficam guardados enquanto a consola estiver ligada; gravá-los no cartucho (SRAM) fica para depois.
+
 ## Personagens
 
 Escolhe-se em JOGAR, com esquerda e direita. As melhorias passivas são comuns a todos.

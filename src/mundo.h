@@ -87,7 +87,13 @@ enum {
     SPR_COGUMELOS,                  /* pântano: cogumelos que brilham (16x16) */
     SPR_BOSS2,                      /* 3: Olho de Jade — a flutuar 0, a flutuar 1, aviso */
     SPR_ORBE = SPR_BOSS2 + 3,       /* 2: orbe de jade disparado pelo segundo boss */
-    SPR_COUNT = SPR_ORBE + 2
+    SPR_MOEDA = SPR_ORBE + 2,       /* 3: moeda a girar (2), saco de moedas */
+    SPR_FRANGO = SPR_MOEDA + 3,     /* frango: cura */
+    SPR_VASO,                       /* vaso que se parte */
+    SPR_BAU,                        /* 3: baú fechado, baú aberto, baú dourado */
+    SPR_ITEM = SPR_BAU + 3,         /* 12: ícones dos itens (16x16) */
+    SPR_MORCEGO = SPR_ITEM + 12,    /* 2: morcego da passagem de plataformas (asas em cima, em baixo) */
+    SPR_COUNT = SPR_MORCEGO + 2
 };
 typedef struct { uint16_t w, h, ax, ay; uint32_t off; } SprDesc;   /* w já inclui folga par */
 typedef struct { uint16_t x, y; uint8_t spr, flags; } Prop;        /* x,y = pés, em px do mundo */
